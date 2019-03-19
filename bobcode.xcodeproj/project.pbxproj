@@ -7,16 +7,86 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		4A84DEFA220B671A007D29A7 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 4A84DEF9220B671A007D29A7 /* main.c */; };
+		4A84DF22220B6761007D29A7 /* bobcode.c in Sources */ = {isa = PBXBuildFile; fileRef = 4A84DF00220B6761007D29A7 /* bobcode.c */; };
+		4A84DF23220B6761007D29A7 /* forcefield0.c in Sources */ = {isa = PBXBuildFile; fileRef = 4A84DF17220B6761007D29A7 /* forcefield0.c */; };
+		4A84DF24220B6761007D29A7 /* forcefield1.c in Sources */ = {isa = PBXBuildFile; fileRef = 4A84DF18220B6761007D29A7 /* forcefield1.c */; };
+		4A84DF25220B678D007D29A7 /* bobcode.c in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF00220B6761007D29A7 /* bobcode.c */; };
+		4A84DF26220B678D007D29A7 /* changaN8.acc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF01220B6761007D29A7 /* changaN8.acc */; };
+		4A84DF27220B678D007D29A7 /* changaN8.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF02220B6761007D29A7 /* changaN8.ini */; };
+		4A84DF28220B678D007D29A7 /* changaN8.pot in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF03220B6761007D29A7 /* changaN8.pot */; };
+		4A84DF29220B678D007D29A7 /* changaN64.acc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF04220B6761007D29A7 /* changaN64.acc */; };
+		4A84DF2A220B678D007D29A7 /* changaN64.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF05220B6761007D29A7 /* changaN64.ini */; };
+		4A84DF2B220B678D007D29A7 /* changaN64.pot in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF06220B6761007D29A7 /* changaN64.pot */; };
+		4A84DF2C220B678D007D29A7 /* changaN512.acc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF07220B6761007D29A7 /* changaN512.acc */; };
+		4A84DF2D220B678D007D29A7 /* changaN512.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF08220B6761007D29A7 /* changaN512.ini */; };
+		4A84DF2E220B678D007D29A7 /* changaN512.pot in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF09220B6761007D29A7 /* changaN512.pot */; };
+		4A84DF2F220B678D007D29A7 /* changaN30000.acc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF0A220B6761007D29A7 /* changaN30000.acc */; };
+		4A84DF30220B678D007D29A7 /* changaN30000.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF0B220B6761007D29A7 /* changaN30000.ini */; };
+		4A84DF31220B678D007D29A7 /* changaN30000.pot in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF0C220B6761007D29A7 /* changaN30000.pot */; };
+		4A84DF32220B678D007D29A7 /* CsClN2.acc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF0D220B6761007D29A7 /* CsClN2.acc */; };
+		4A84DF33220B678D007D29A7 /* CsClN2.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF0E220B6761007D29A7 /* CsClN2.ini */; };
+		4A84DF34220B678D007D29A7 /* CsClN2.pot in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF0F220B6761007D29A7 /* CsClN2.pot */; };
+		4A84DF35220B678D007D29A7 /* CsClN16.acc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF10220B6761007D29A7 /* CsClN16.acc */; };
+		4A84DF36220B678D007D29A7 /* CsClN16.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF11220B6761007D29A7 /* CsClN16.ini */; };
+		4A84DF37220B678D007D29A7 /* CsClN16.pot in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF12220B6761007D29A7 /* CsClN16.pot */; };
+		4A84DF38220B678D007D29A7 /* CsClN128.acc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF13220B6761007D29A7 /* CsClN128.acc */; };
+		4A84DF39220B678D007D29A7 /* CsClN128.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF14220B6761007D29A7 /* CsClN128.ini */; };
+		4A84DF3A220B678D007D29A7 /* CsClN128.pot in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF15220B6761007D29A7 /* CsClN128.pot */; };
+		4A84DF3B220B678D007D29A7 /* forcefield.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF16220B6761007D29A7 /* forcefield.h */; };
+		4A84DF3C220B678D007D29A7 /* forcefield0.c in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF17220B6761007D29A7 /* forcefield0.c */; };
+		4A84DF3D220B678D007D29A7 /* forcefield1.c in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF18220B6761007D29A7 /* forcefield1.c */; };
+		4A84DF3E220B678D007D29A7 /* NaClN8.acc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF19220B6761007D29A7 /* NaClN8.acc */; };
+		4A84DF3F220B678D007D29A7 /* NaClN8.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF1A220B6761007D29A7 /* NaClN8.ini */; };
+		4A84DF40220B678D007D29A7 /* NaClN8.pot in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF1B220B6761007D29A7 /* NaClN8.pot */; };
+		4A84DF41220B678D007D29A7 /* NaClN64.acc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF1C220B6761007D29A7 /* NaClN64.acc */; };
+		4A84DF42220B678D007D29A7 /* NaClN64.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF1D220B6761007D29A7 /* NaClN64.ini */; };
+		4A84DF43220B678D007D29A7 /* NaClN64.pot in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF1E220B6761007D29A7 /* NaClN64.pot */; };
+		4A84DF44220B678D007D29A7 /* NaClN512.acc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF1F220B6761007D29A7 /* NaClN512.acc */; };
+		4A84DF45220B678D007D29A7 /* NaClN512.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF20220B6761007D29A7 /* NaClN512.ini */; };
+		4A84DF46220B678D007D29A7 /* NaClN512.pot in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF21220B6761007D29A7 /* NaClN512.pot */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
 		4A84DEF4220B671A007D29A7 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
-			dstSubfolderSpec = 0;
+			dstPath = .;
+			dstSubfolderSpec = 16;
 			files = (
+				4A84DF25220B678D007D29A7 /* bobcode.c in CopyFiles */,
+				4A84DF26220B678D007D29A7 /* changaN8.acc in CopyFiles */,
+				4A84DF27220B678D007D29A7 /* changaN8.ini in CopyFiles */,
+				4A84DF28220B678D007D29A7 /* changaN8.pot in CopyFiles */,
+				4A84DF29220B678D007D29A7 /* changaN64.acc in CopyFiles */,
+				4A84DF2A220B678D007D29A7 /* changaN64.ini in CopyFiles */,
+				4A84DF2B220B678D007D29A7 /* changaN64.pot in CopyFiles */,
+				4A84DF2C220B678D007D29A7 /* changaN512.acc in CopyFiles */,
+				4A84DF2D220B678D007D29A7 /* changaN512.ini in CopyFiles */,
+				4A84DF2E220B678D007D29A7 /* changaN512.pot in CopyFiles */,
+				4A84DF2F220B678D007D29A7 /* changaN30000.acc in CopyFiles */,
+				4A84DF30220B678D007D29A7 /* changaN30000.ini in CopyFiles */,
+				4A84DF31220B678D007D29A7 /* changaN30000.pot in CopyFiles */,
+				4A84DF32220B678D007D29A7 /* CsClN2.acc in CopyFiles */,
+				4A84DF33220B678D007D29A7 /* CsClN2.ini in CopyFiles */,
+				4A84DF34220B678D007D29A7 /* CsClN2.pot in CopyFiles */,
+				4A84DF35220B678D007D29A7 /* CsClN16.acc in CopyFiles */,
+				4A84DF36220B678D007D29A7 /* CsClN16.ini in CopyFiles */,
+				4A84DF37220B678D007D29A7 /* CsClN16.pot in CopyFiles */,
+				4A84DF38220B678D007D29A7 /* CsClN128.acc in CopyFiles */,
+				4A84DF39220B678D007D29A7 /* CsClN128.ini in CopyFiles */,
+				4A84DF3A220B678D007D29A7 /* CsClN128.pot in CopyFiles */,
+				4A84DF3B220B678D007D29A7 /* forcefield.h in CopyFiles */,
+				4A84DF3C220B678D007D29A7 /* forcefield0.c in CopyFiles */,
+				4A84DF3D220B678D007D29A7 /* forcefield1.c in CopyFiles */,
+				4A84DF3E220B678D007D29A7 /* NaClN8.acc in CopyFiles */,
+				4A84DF3F220B678D007D29A7 /* NaClN8.ini in CopyFiles */,
+				4A84DF40220B678D007D29A7 /* NaClN8.pot in CopyFiles */,
+				4A84DF41220B678D007D29A7 /* NaClN64.acc in CopyFiles */,
+				4A84DF42220B678D007D29A7 /* NaClN64.ini in CopyFiles */,
+				4A84DF43220B678D007D29A7 /* NaClN64.pot in CopyFiles */,
+				4A84DF44220B678D007D29A7 /* NaClN512.acc in CopyFiles */,
+				4A84DF45220B678D007D29A7 /* NaClN512.ini in CopyFiles */,
+				4A84DF46220B678D007D29A7 /* NaClN512.pot in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -24,7 +94,40 @@
 
 /* Begin PBXFileReference section */
 		4A84DEF6220B671A007D29A7 /* bobcode */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bobcode; sourceTree = BUILT_PRODUCTS_DIR; };
-		4A84DEF9220B671A007D29A7 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		4A84DF00220B6761007D29A7 /* bobcode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = bobcode.c; sourceTree = "<group>"; };
+		4A84DF01220B6761007D29A7 /* changaN8.acc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN8.acc; sourceTree = "<group>"; };
+		4A84DF02220B6761007D29A7 /* changaN8.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN8.ini; sourceTree = "<group>"; };
+		4A84DF03220B6761007D29A7 /* changaN8.pot */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN8.pot; sourceTree = "<group>"; };
+		4A84DF04220B6761007D29A7 /* changaN64.acc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN64.acc; sourceTree = "<group>"; };
+		4A84DF05220B6761007D29A7 /* changaN64.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN64.ini; sourceTree = "<group>"; };
+		4A84DF06220B6761007D29A7 /* changaN64.pot */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN64.pot; sourceTree = "<group>"; };
+		4A84DF07220B6761007D29A7 /* changaN512.acc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN512.acc; sourceTree = "<group>"; };
+		4A84DF08220B6761007D29A7 /* changaN512.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN512.ini; sourceTree = "<group>"; };
+		4A84DF09220B6761007D29A7 /* changaN512.pot */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN512.pot; sourceTree = "<group>"; };
+		4A84DF0A220B6761007D29A7 /* changaN30000.acc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN30000.acc; sourceTree = "<group>"; };
+		4A84DF0B220B6761007D29A7 /* changaN30000.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN30000.ini; sourceTree = "<group>"; };
+		4A84DF0C220B6761007D29A7 /* changaN30000.pot */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = changaN30000.pot; sourceTree = "<group>"; };
+		4A84DF0D220B6761007D29A7 /* CsClN2.acc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CsClN2.acc; sourceTree = "<group>"; };
+		4A84DF0E220B6761007D29A7 /* CsClN2.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CsClN2.ini; sourceTree = "<group>"; };
+		4A84DF0F220B6761007D29A7 /* CsClN2.pot */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CsClN2.pot; sourceTree = "<group>"; };
+		4A84DF10220B6761007D29A7 /* CsClN16.acc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CsClN16.acc; sourceTree = "<group>"; };
+		4A84DF11220B6761007D29A7 /* CsClN16.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CsClN16.ini; sourceTree = "<group>"; };
+		4A84DF12220B6761007D29A7 /* CsClN16.pot */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CsClN16.pot; sourceTree = "<group>"; };
+		4A84DF13220B6761007D29A7 /* CsClN128.acc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CsClN128.acc; sourceTree = "<group>"; };
+		4A84DF14220B6761007D29A7 /* CsClN128.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CsClN128.ini; sourceTree = "<group>"; };
+		4A84DF15220B6761007D29A7 /* CsClN128.pot */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = CsClN128.pot; sourceTree = "<group>"; };
+		4A84DF16220B6761007D29A7 /* forcefield.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = forcefield.h; sourceTree = "<group>"; };
+		4A84DF17220B6761007D29A7 /* forcefield0.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = forcefield0.c; sourceTree = "<group>"; };
+		4A84DF18220B6761007D29A7 /* forcefield1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = forcefield1.c; sourceTree = "<group>"; };
+		4A84DF19220B6761007D29A7 /* NaClN8.acc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN8.acc; sourceTree = "<group>"; };
+		4A84DF1A220B6761007D29A7 /* NaClN8.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN8.ini; sourceTree = "<group>"; };
+		4A84DF1B220B6761007D29A7 /* NaClN8.pot */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN8.pot; sourceTree = "<group>"; };
+		4A84DF1C220B6761007D29A7 /* NaClN64.acc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN64.acc; sourceTree = "<group>"; };
+		4A84DF1D220B6761007D29A7 /* NaClN64.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN64.ini; sourceTree = "<group>"; };
+		4A84DF1E220B6761007D29A7 /* NaClN64.pot */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN64.pot; sourceTree = "<group>"; };
+		4A84DF1F220B6761007D29A7 /* NaClN512.acc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN512.acc; sourceTree = "<group>"; };
+		4A84DF20220B6761007D29A7 /* NaClN512.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN512.ini; sourceTree = "<group>"; };
+		4A84DF21220B6761007D29A7 /* NaClN512.pot */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN512.pot; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -41,7 +144,40 @@
 		4A84DEED220B671A007D29A7 = {
 			isa = PBXGroup;
 			children = (
-				4A84DEF8220B671A007D29A7 /* bobcode */,
+				4A84DF00220B6761007D29A7 /* bobcode.c */,
+				4A84DF01220B6761007D29A7 /* changaN8.acc */,
+				4A84DF02220B6761007D29A7 /* changaN8.ini */,
+				4A84DF03220B6761007D29A7 /* changaN8.pot */,
+				4A84DF04220B6761007D29A7 /* changaN64.acc */,
+				4A84DF05220B6761007D29A7 /* changaN64.ini */,
+				4A84DF06220B6761007D29A7 /* changaN64.pot */,
+				4A84DF07220B6761007D29A7 /* changaN512.acc */,
+				4A84DF08220B6761007D29A7 /* changaN512.ini */,
+				4A84DF09220B6761007D29A7 /* changaN512.pot */,
+				4A84DF0A220B6761007D29A7 /* changaN30000.acc */,
+				4A84DF0B220B6761007D29A7 /* changaN30000.ini */,
+				4A84DF0C220B6761007D29A7 /* changaN30000.pot */,
+				4A84DF0D220B6761007D29A7 /* CsClN2.acc */,
+				4A84DF0E220B6761007D29A7 /* CsClN2.ini */,
+				4A84DF0F220B6761007D29A7 /* CsClN2.pot */,
+				4A84DF10220B6761007D29A7 /* CsClN16.acc */,
+				4A84DF11220B6761007D29A7 /* CsClN16.ini */,
+				4A84DF12220B6761007D29A7 /* CsClN16.pot */,
+				4A84DF13220B6761007D29A7 /* CsClN128.acc */,
+				4A84DF14220B6761007D29A7 /* CsClN128.ini */,
+				4A84DF15220B6761007D29A7 /* CsClN128.pot */,
+				4A84DF16220B6761007D29A7 /* forcefield.h */,
+				4A84DF17220B6761007D29A7 /* forcefield0.c */,
+				4A84DF18220B6761007D29A7 /* forcefield1.c */,
+				4A84DF19220B6761007D29A7 /* NaClN8.acc */,
+				4A84DF1A220B6761007D29A7 /* NaClN8.ini */,
+				4A84DF1B220B6761007D29A7 /* NaClN8.pot */,
+				4A84DF1C220B6761007D29A7 /* NaClN64.acc */,
+				4A84DF1D220B6761007D29A7 /* NaClN64.ini */,
+				4A84DF1E220B6761007D29A7 /* NaClN64.pot */,
+				4A84DF1F220B6761007D29A7 /* NaClN512.acc */,
+				4A84DF20220B6761007D29A7 /* NaClN512.ini */,
+				4A84DF21220B6761007D29A7 /* NaClN512.pot */,
 				4A84DEF7220B671A007D29A7 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -52,14 +188,6 @@
 				4A84DEF6220B671A007D29A7 /* bobcode */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		4A84DEF8220B671A007D29A7 /* bobcode */ = {
-			isa = PBXGroup;
-			children = (
-				4A84DEF9220B671A007D29A7 /* main.c */,
-			);
-			path = bobcode;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -119,7 +247,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4A84DEFA220B671A007D29A7 /* main.c in Sources */,
+				4A84DF22220B6761007D29A7 /* bobcode.c in Sources */,
+				4A84DF24220B6761007D29A7 /* forcefield1.c in Sources */,
+				4A84DF23220B6761007D29A7 /* forcefield0.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
