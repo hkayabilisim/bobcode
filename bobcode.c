@@ -32,8 +32,8 @@ double msm4g_toc() {
 
 
 int main(int argc, char **argv){
-  if (argc != 9) {
-    printf("Usage: %s data nbar nu mu M L tol_dir tol_rec\n",argv[0]);
+  if (argc != 8) {
+    printf("Usage: %s data nbar nu M L tol_dir tol_rec\n",argv[0]);
     exit(1);
   }
   double edge[3][3] = {1., 0., 0., 0., 1, 0., 0., 0., 1.};
@@ -65,14 +65,12 @@ int main(int argc, char **argv){
   double energy;
   double nbar = atoi(argv[2]);
   int nu = atoi(argv[3]);
-  int mu = atoi(argv[4]);
-  int Mtop = atoi(argv[5]);
-  int L = atoi(argv[6]);
-  double tol_dir = atof(argv[7]);
-  double tol_rec = atof(argv[8]);
+  int Mtop = atoi(argv[4]);
+  int L = atoi(argv[5]);
+  double tol_dir = atof(argv[6]);
+  double tol_rec = atof(argv[7]);
   if (nbar != 0 ) FF_set_relCutoff(ff, nbar);
   if (nu != 0 ) FF_set_orderAcc(ff, nu);
-//  if (mu != 0 ) FF_set_collocAcc(ff, mu);
   if (L != 0) FF_set_maxLevel(ff, L);
   if (Mtop != 0 ) {
     M[0] = Mtop; M[1] = Mtop; M[2] = Mtop;
@@ -89,7 +87,6 @@ int main(int argc, char **argv){
   printf("%-30s : %d\n", "L",FF_get_maxLevel(ff));
   printf("%-30s : %f\n", "nbar",FF_get_relCutoff(ff));
   printf("%-30s : %d\n", "nu",FF_get_orderAcc(ff));
-//  printf("%-30s : %d\n", "mu",FF_get_collocAcc(ff));
   printf("%-30s : %d\n", "TopLevelMx",M[0]);
   printf("%-30s : %d\n", "TopLevelMy",M[1]);
   printf("%-30s : %d\n", "TopLevelMz",M[2]);
@@ -138,9 +135,9 @@ int main(int argc, char **argv){
   
   FILE *fp = fopen("bob.acc","w");
   fprintf(fp,"%d\n",N);
-  for (int i=0;i<N;i++) fprintf(fp,"%25.16e\n",-F[i][0]/q[i]);
-  for (int i=0;i<N;i++) fprintf(fp,"%25.16e\n",-F[i][1]/q[i]);
-  for (int i=0;i<N;i++) fprintf(fp,"%25.16e\n",-F[i][2]/q[i]);
+  for (int i=0;i<N;i++) fprintf(fp,"%-25.16f\n",-F[i][0]/q[i]);
+  for (int i=0;i<N;i++) fprintf(fp,"%-25.16f\n",-F[i][1]/q[i]);
+  for (int i=0;i<N;i++) fprintf(fp,"%-25.16f\n",-F[i][2]/q[i]);
   fclose(fp);
   fp = fopen("bob.pot","w");
   fprintf(fp,"%25.16e\n",energy);

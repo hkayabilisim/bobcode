@@ -11,6 +11,7 @@
 #include <complex.h>
 #include <math.h>
 #include <string.h>
+#include <time.h>
 #include "forcefield.h"
 
 typedef struct Vector {double x, y, z;} Vector;
@@ -191,7 +192,6 @@ void FF_build(FF *ff, int N, double edges[3][3]){
     int sdi = dmax < di ? dmax : di;
     int sdj = dmax < dj ? dmax : dj;
     int sdk = dmax < dk ? dmax : dk;
-    sdk = sdk/2 + 1; // use the fact that khat_{i,j,k} = khat_{i,j,-k}
     ff->khat[l] = (double *)calloc(sdi*sdj*sdk, sizeof(double));}
   // following is for purpose of debugging
   if (strcmp(o.test, "nobuild") == 0) return;
@@ -246,11 +246,10 @@ double FF_get_errEst(FF *ff, int N, double *charge){
 // The rebuild method is called every time the periodic cell changes.
 // It initializes edges and calculate the grid2grid stencils.
 // helper functions:
-static void kaphatALp1(FF *ff, Triple gd, Triple sd, double kh[], double detA);
 static void dALp1(FF *ff, Triple gd, Triple sd, double kh[], double detA);
 static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
                     Vector as);
-static void	DFT(Triple gd, double dL[], double khatL[]);
+static void DFT(Triple gd, double dL[], double khatL[]);
 void FF_rebuild(FF *ff, double edges[3][3]) {
   *(Matrix *)ff->A = *(Matrix *)edges;
   Matrix A = *(Matrix *)ff->A;
@@ -291,55 +290,50 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
   // build grid-to-grid stencil for level L
   Triple gd = *(Triple *)ff->topGridDim;
   // determine range of kernel evaluations
-  Triple sd;
-  sd.x = gd.x, sd.y = gd.y, sd.z = gd.z/2 + 1;  // stencil dimensions
-   // using the fact that khat_{i,j,k} = khat_{i,j,-k}
+  Triple sd = gd;
   // calculate level L+1 kappa hat
   int L = ff->maxLevel;
   double *kh = ff->khat[L];
   // kappa_hat_n = sum_k chi(k) c'(k) exp(2 pi i k . H_L n)
   // kh = d^{L+1} + DFT of khat^L
-	for (int i = 0; i < sd.x*sd.y*sd.z; i++) kh[i] = 0.;
-	kaphatA(ff, L, gd, sd, kh, as); // add in real space contribution
-	double *khatL = (double *)malloc(gd.x*gd.y*gd.z*sizeof(double));
-	// expand kh into khatL
-	for (int i = 0; i < gd.x; i++)
-		for (int j = 0; j < gd.y; j++)
-			for (int k = 0; k < gd.z; k++){
-				int i_, j_, k_;
-				if (k < (gd.z + 1)/2)
-					i_ = gd.x - i, j_ = gd.y - j, k_ = - k;
-				else
-					i_ = i, j_ = j, k_ = k - gd.z;
-				i_ = (i_ + gd.x/2)%gd.x - gd.x/2;
-				j_ = (j_ + gd.y/2)%gd.y - gd.y/2;
-				khatL[(i*gd.y + j)*gd.z + k]
-					= kh[((i_ + sd.x/2)*sd.y + j_ + sd.y/2)*sd.z + k_ + sd.z - 1];
-			}
-	double *dL = (double *)malloc(gd.x*gd.y*gd.z*sizeof(double));
-	DFT(gd, dL, khatL);
-	free(khatL);
-	// compress dL into kh
-	for (int i_ = - gd.x/2; i_ <= (gd.x - 1)/2; i_++)
-		for (int j_ = - gd.y/2; j_ <= (gd.y - 1)/2; j_++)
-			for (int k_ = - gd.z/2; k_ <= 0; k_++){
-				int i = (i_ + gd.x)%gd.x, j	= (j_ + gd.y)%gd.y, k	= (k_ + gd.z)%gd.z;
-				kh[((i_ + sd.x/2)*sd.y + j_ + sd.y/2)*sd.z + k_ + sd.z - 1]
-					= dL[(i*gd.y + j)*gd.z + k];
-			}
-	free(dL);
-	dALp1(ff, gd, sd, kh, detA);  // add in d^{L+1}(A)
-  
+  for (int i = 0; i < sd.x*sd.y*sd.z; i++) kh[i] = 0.;
+  kaphatA(ff, L, gd, sd, kh, as); // add in real space contribution
+  double *khatL = (double *)malloc(gd.x*gd.y*gd.z*sizeof(double));
+  // expand kh into khatL
+  for (int i = 0; i < gd.x; i++)
+    for (int j = 0; j < gd.y; j++)
+      for (int k = 0; k < gd.z; k++){
+        int i_, j_, k_;
+        i_ = i, j_ = j, k_ = k;
+        i_ = (i_ + gd.x/2)%gd.x - gd.x/2;
+        j_ = (j_ + gd.y/2)%gd.y - gd.y/2;
+        k_ = (k_ + gd.z/2)%gd.z - gd.z/2;
+        khatL[(i*gd.y + j)*gd.z + k]
+          = kh[((i_ + sd.x/2)*sd.y + j_ + sd.y/2)*sd.z + k_ + sd.z/2];
+      }
+  double *dL = (double *)malloc(gd.x*gd.y*gd.z*sizeof(double));
+  DFT(gd, dL, khatL);
+  free(khatL);
+  // compress dL into kh
+  for (int i_ = - gd.x/2; i_ <= (gd.x - 1)/2; i_++)
+    for (int j_ = - gd.y/2; j_ <= (gd.y - 1)/2; j_++)
+      for (int k_ = - gd.z/2; k_ <= (gd.z - 1)/2; k_++){
+        int i = (i_ + gd.x)%gd.x, j = (j_ + gd.y)%gd.y, k = (k_ + gd.z)%gd.z;
+        kh[((i_ + sd.x/2)*sd.y + j_ + sd.y/2)*sd.z + k_ + sd.z/2]
+          = dL[(i*gd.y + j)*gd.z + k];
+      }
+  free(dL);
+  dALp1(ff, gd, sd, kh, detA);  // add in d^{L+1}(A)
+
   // build grid-to-grid stencil for levels L-1, ..., 1
   int kdmax = 2*ff->nLim + 1;
   for (int l = L - 1; l > 0; l--){
-    double *kh = ff->khat[l];
-    for (int i = 0; i < sd.x*sd.y*sd.z; i++) kh[i] = 0.;
     gd.x *= 2; gd.y *= 2; gd.z *= 2;
     sd.x = kdmax < gd.x ? kdmax : gd.x;
     sd.y = kdmax < gd.y ? kdmax : gd.y;
     sd.z = kdmax < gd.z ? kdmax : gd.z;
-    sd.z = sd.z/2 + 1; // using the fact that khat_{i,j,k} = khat_{i,j,-k}
+    double *kh = ff->khat[l];
+    for (int i = 0; i < sd.x*sd.y*sd.z; i++) kh[i] = 0.;
     kaphatA(ff, l, gd, sd, kh, as);
   }
 }
@@ -409,100 +403,6 @@ static void omegap(FF *ff){
   free(Phi);
 }
 
-static void kaphatALp1(FF *ff, Triple gd, Triple sd, double kh[], double detA){
-	// set kh to kappaHat^{L+1}(A)
-  // determine range of kernel evaluations
-  Matrix Ai = *(Matrix *)ff-> Ai;
-  Triple kLim = *(Triple *)ff->kLim;
-  // loop on vec k
-  double pi = 4.*atan(1.);
-  double pidetA = pi*fabs(detA);
-  double pi2beta2 = pow(pi/ff->beta, 2);
-  // for kx = 0, 1, -1, ..., kLim.x, -kLim.x
-  int dx = 2*kLim.x + 1, dy = 2*kLim.y + 1, dz = 2*kLim.z + 1;
-  double *d = (double *)calloc(dx*dy*dz, sizeof(double));
-  for (int kx = - kLim.x ; kx <= kLim.x; kx++){
-    int kx0 = ((kx + gd.x/2) % gd.x + gd.x) % gd.x - gd.x/2;
-    double cLx = ff->cL[0][abs(kx0)];
-    for (int ky = - kLim.y; ky <= kLim.y; ky++){
-      int ky0 = ((ky + gd.y/2) % gd.y + gd.y) % gd.y - gd.y/2;
-      double cLxy = cLx*ff->cL[1][abs(ky0)];
-      for (int kz = - kLim.z; kz <= kLim.z; kz++){
-        int kz0 = ((kz + gd.z/2) % gd.z + gd.z) % gd.z - gd.z/2;
-        double cLxyz = cLxy*ff->cL[2][abs(kz0)];
-        double fkx = (double)kx, fky = (double)ky, fkz = (double)kz;
-        double Aikx = Ai.xx*fkx + Ai.yx*fky + Ai.zx*fkz,
-          Aiky = Ai.xy*fkx + Ai.yy*fky + Ai.zy*fkz,
-          Aikz = Ai.xz*fkx + Ai.yz*fky + Ai.zz*fkz;
-        double k2 = Aikx*Aikx + Aiky*Aiky + Aikz*Aikz;
-        double chi_cL = k2 == 0 ? 0 : exp(- pi2beta2*k2)/(pidetA*k2)*cLxyz;
-        d[((kx0 + dx/2)*dy + ky0 + dy/2)*dz + kz0 + dz/2] += chi_cL;
-      }
-    }
-  }
-  
-  for (int i = 0; i < sd.x*sd.y*sd.z; i++) kh[i] = 0.;
-  double complex zetax = cexp(2.*pi*I/(double)gd.x);
-  // for kx = 0, 1, -1, ..., kLim.x, -kLim.x
-  double complex zetax_k = 1.;
-  for (int kx = 0 ; kx != kLim.x + 1
-         ; zetax_k =  kx > 0 ? conj(zetax_k) : zetax*conj(zetax_k),
-         kx = kx > 0 ? - kx : 1 - kx){
-    int kx0 = abs(((kx + gd.x/2) % gd.x + gd.x) % gd.x - gd.x/2);
-    double cLx = ff->cL[0][kx0];
-    double complex zetay = cexp(2.*pi*I/(double)gd.y);
-    double complex zetay_k = 1.;
-    for (int ky = 0; ky != kLim.y + 1
-           ; zetay_k =  ky > 0 ? conj(zetay_k) : zetay*conj(zetay_k),
-           ky = ky > 0 ? - ky : 1 - ky){
-      int ky0 = abs(((ky + gd.y/2) % gd.y + gd.y) % gd.y - gd.y/2);
-      double cLxy = cLx*ff->cL[1][ky0];
-      double complex zetaz = cexp(2.*pi*I/(double)gd.z);
-      double complex zetaz_k = 1.;
-      for (int kz = 0; kz != kLim.z + 1
-             ; zetaz_k =  kz > 0 ? conj(zetaz_k) : zetaz*conj(zetaz_k),
-             kz = kz > 0 ? - kz : 1 - kz){
-        int kz0 = abs(((kz + gd.z/2) % gd.z + gd.z) % gd.z - gd.z/2);
-        double cLxyz = cLxy*ff->cL[2][kz0];
-        double chi_cL = d[((kx + dx/2)*dy + ky + dy/2)*dz + kz + dy/2];
-        // distribute chi(k; A)c(k)^2
-        // for - sd.x/2 <= nx <= (sd.x - 1)/2
-        double complex zetax_kn = 1.;
-        for (int nx = 0; nx != sd.x/2 + 1
-               ; zetax_kn = nx > 0 ? conj(zetax_kn) : zetax_k*conj(zetax_kn),
-               nx = nx > 0 ? - nx : 1 - nx){
-          if (nx == (sd.x - 1)/2 + 1) continue;
-          double *khi = kh + (nx+sd.x/2)*sd.y*sd.z;
-          // for - sd.y/2 <= ny <= (sd.y - 1)/2
-          double complex zetay_kn = 1.;
-          for (int ny = 0; ny != sd.y/2 + 1
-                 ; zetay_kn = ny > 0 ? conj(zetay_kn) : zetay_k*conj(zetay_kn),
-                 ny = ny > 0 ? - ny : 1 - ny){
-            if (ny == (sd.y - 1)/2 + 1) continue;
-            double *khij = khi + (ny+sd.y/2)*sd.z;
-            // for 1 - sd.z <= nz <= 0
-            double complex zetaz_kn = 1.;
-            for (int nz = 0; nz != - sd.z
-                   ; zetaz_kn *= conj(zetaz_k), nz--){
-              // add chi_cL*zetax_kn*zetay_kn*zetaz_kn to kh_ijk
-              khij[nz + sd.z - 1] += chi_cL*creal(zetax_kn*zetay_kn*zetaz_kn);
-              if (strcmp(o.test, "test_kaphatA") == 0){
-                int offset = (int)(khij + nz + sd.z - 1 - kh);
-                o.khatLp1[offset] += chi_cL*creal(zetax_kn*zetay_kn*zetaz_kn);}
-              if (strcmp(o.test, "test_kappaA") == 0){
-                int offset = (int)(khij + nz + sd.z - 1 - kh);
-                int L = ff->maxLevel;
-                o.kappa[L+1][offset]
-                  += chi_cL*creal(zetax_kn*zetay_kn*zetaz_kn)/cLxyz;}
-            }
-          }
-        }
-      }
-    }
-  }
-  free(d);
-}
-
 static void dALp1(FF *ff, Triple gd, Triple sd, double kh[], double detA){
   // add d^{L+1}(A) to kh
   Matrix Ai = *(Matrix *)ff-> Ai;
@@ -527,94 +427,107 @@ static void dALp1(FF *ff, Triple gd, Triple sd, double kh[], double detA){
           Aikz = Ai.xz*fkx + Ai.yz*fky + Ai.zz*fkz;
         double k2 = Aikx*Aikx + Aiky*Aiky + Aikz*Aikz;
         double chi_cL = k2 == 0 ? 0 : exp(- pi2beta2*k2)/(pidetA*k2)*cLxyz;
-				if (kz0 <= 0)
-					kh[((kx0 + sd.x/2)*sd.y + ky0 + sd.y/2)*sd.z + kz0 + sd.z - 1]
-						+= chi_cL*gd.x*gd.y*gd.z;
+          kh[((kx0 + sd.x/2)*sd.y + ky0 + sd.y/2)*sd.z + kz0 + sd.z/2]
+            += chi_cL*gd.x*gd.y*gd.z;
       }
     }
   }
 }
 
-static void	DFT(Triple gd, double dL[], double khatL[]){
-	double twopi = 8.*atan(1.);
-	for (int kx = 0; kx < gd.x; kx++)
-		for (int ky = 0; ky < gd.y; ky++)
-			for (int kz = 0; kz < gd.z; kz++){
-				double dLk = 0.;
-				double cx = twopi*(double)kx/gd.x;
-				double cy = twopi*(double)ky/gd.y;
-				double cz = twopi*(double)kz/gd.z;
-				for (int nx = 0; nx < gd.x; nx++)
-					for (int ny = 0.; ny < gd.y; ny++)
-						for (int nz = 0.; nz < gd.z; nz++)
-							dLk += cos(cx*(double)nx + cy*(double)ny + cz*(double)nz)
-								*khatL[(nx*gd.y + ny)*gd.z + nz];
-				dL[(kx*gd.y + ky)*gd.z + kz] = dLk;
-			}
+static void DFT(Triple gd, double dL[], double khatL[]){
+  double twopi = 8.*atan(1.);
+  for (int kx = 0; kx < gd.x; kx++)
+    for (int ky = 0; ky < gd.y; ky++)
+      for (int kz = 0; kz < gd.z; kz++){
+        double dLk = 0.;
+        double cx = twopi*(double)kx/gd.x;
+        double cy = twopi*(double)ky/gd.y;
+        double cz = twopi*(double)kz/gd.z;
+        for (int nx = 0; nx < gd.x; nx++)
+          for (int ny = 0.; ny < gd.y; ny++)
+            for (int nz = 0.; nz < gd.z; nz++)
+              dLk += cos(cx*(double)nx + cy*(double)ny + cz*(double)nz)
+                *khatL[(nx*gd.y + ny)*gd.z + nz];
+        dL[(kx*gd.y + ky)*gd.z + kz] = dLk;
+      }
 }
 
 static double kappaA(FF *ff, int l, Vector s, Vector as);  // kappa_l(A s; A)
 static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
                     Vector as){
   // add kappaHat_l to kh
+  clock_t begin = clock();
   int kdmax = 2*ff->nLim + 1;
-  int kdi = kdmax < gd.x ? kdmax : gd.x;
-  int kdj = kdmax < gd.y ? kdmax : gd.y;
-  int kdk = kdmax < gd.z ? kdmax : gd.z;
+  int kdx = kdmax < gd.x ? kdmax : gd.x;
+  int kdy = kdmax < gd.y ? kdmax : gd.y;
+  int kdz = kdmax < gd.z ? kdmax : gd.z;
   // construct array of kappa values
-  double *kap = (double *)malloc(kdi*kdj*kdk*sizeof(double));
+  double *kap = (double *)malloc(kdx*kdy*kdz*sizeof(double));
   Vector s;
-  for (int i = - kdi/2; i <= (kdi - 1)/2; i++){
-    double *kapi = kap + (i + kdi/2)*kdj*kdk;
+  for (int i = - kdx/2; i <= (kdx - 1)/2; i++){
+    double *kapi = kap + (i + kdx/2)*kdy*kdz;
     s.x = (double)i/(double)gd.x;
-    for (int j = - kdj/2; j <= (kdj - 1)/2; j++){
-      double *kapij = kapi + (j + kdj/2)*kdk;
+    for (int j = - kdy/2; j <= (kdy - 1)/2; j++){
+      double *kapij = kapi + (j + kdy/2)*kdz;
       s.y = (double)j/(double)gd.y;
-      for (int k = - kdk/2; k <= (kdk - 1)/2; k++){
+      for (int k = - kdz/2; k <= (kdz - 1)/2; k++){
         s.z = (double)k/(double)gd.z;
-        kapij[k + kdk/2] = kappaA(ff, l, s, as);}}}
+        kapij[k + kdz/2] = kappaA(ff, l, s, as);}}}
   if (strcmp(o.test, "test_kappaA") == 0)
-    for (int i = 0; i < kdi*kdj*kdk; i++) o.kappa[l][i] = kap[i];
+    for (int i = 0; i < kdx*kdy*kdz; i++) o.kappa[l][i] = kap[i];
   double **op = ff->omegap[l];
   int opLim = 2*ff->nLim;
+  clock_t end = clock();
+  //-printf("elapsed time = %f, iterations = %d\n",
+	//-(double)(end - o.time)/CLOCKS_PER_SEC, kdx*kdy*kdz);
+  begin = clock();
   //construct kappa hat element by element
-  for (int i = - sd.x/2; i <= (sd.x - 1)/2; i++){
-    double *khi = kh + (i + sd.x/2)*sd.y*sd.z;
-    for (int j = - sd.y/2; j <= (sd.y - 1)/2; j++){
-      double *khij = khi + (j + sd.y/2)*sd.z;
-      for (int k = 1 - sd.z; k <= 0; k++){
-        double khijk = 0.;
-        int ioMin = - gd.x/2;
-        int ioMax = (gd.x - 1)/2;
-        if (gd.x/2 > opLim) ioMin = - opLim, ioMax = opLim;
-        for (int io = ioMin; io <= ioMax; io++){
-          // calculate i + io modulo gd.x
-          int ik = (i + io + gd.x/2 + gd.x)%gd.x - gd.x/2;
-          assert( -gd.x/2<= ik && ik<=(gd.x-1)/2 );
-          if (ik < - kdi/2 || ik > (kdi-1)/2) continue;
-          double *kapi = kap + (ik + kdi/2)*kdj*kdk;
-          double opi = op[0][abs(io)];
-          int joMin = - gd.y/2;
-          int joMax = (gd.y - 1)/2;
-          if (gd.y/2 > opLim) joMin = - opLim, joMax = opLim;
-          for (int jo = joMin; jo <= joMax; jo++){
-            // calculate j + jo modulo gd.y
-            int jk = (j + jo + gd.y/2 + gd.y)%gd.y - gd.y/2;
-            assert( -gd.y/2<= jk && jk<=(gd.y-1)/2 );
-            if (jk < - kdj/2 || jk > (kdj-1)/2) continue;
-            double *kapij = kapi + (jk + kdj/2)*kdk;
-            double opij = opi*op[1][abs(jo)];
-            int koMin = - gd.z/2;
-            int koMax = (gd.z - 1)/2;
-            if (gd.z/2 > opLim) koMin = - opLim, koMax = opLim;
-            for (int ko = koMin; ko <= koMax; ko++){
-              // calculate k + ko modulo gd.z
-              int kk = (k + ko + gd.z/2 + gd.z)%gd.z - gd.z/2;
-              assert( -gd.z/2<= kk && kk<=(gd.z-1)/2 );
-              if (kk < - kdk/2 || kk > (kdk-1)/2) continue;
-              khijk += opij*op[2][abs(ko)]*kapij[kk + kdk/2];}}}
-        khij[k + sd.z - 1] += khijk;}}}
+  if (l == ff->maxLevel)
+    for (int i1 = - sd.x/2; i1 <= (sd.x - 1)/2; i1++){
+      double *khi = kh + (i1 + sd.x/2)*sd.y*sd.z;
+      for (int j1 = - sd.y/2; j1 <= (sd.y - 1)/2; j1++){
+        double *khij = khi + (j1 + sd.y/2)*sd.z;
+        for (int k1 = - sd.z/2; k1 <= (sd.z - 1)/2; k1++){
+          double khijk = 0.;
+          for (int i0 = - kdx/2; i0 <= (kdx - 1)/2; i0++){
+            int i = (i0 - i1 + (3*gd.x)/2)%gd.x - gd.x/2;
+            double opi = op[0][abs(i)];
+            for (int j0 = - kdy/2; j0 <= (kdy - 1)/2; j0++){
+              int j = (j0 - j1 + (3*gd.y)/2)%gd.y - gd.y/2;
+              double opij = opi*op[1][abs(j)];
+              for (int k0 = - kdz/2; k0 <= (kdz - 1)/2; k0++){
+                int k = (k0 - k1 + (3*gd.z)/2)%gd.z - gd.z/2;
+                double opijk = opij*op[2][abs(k)];
+                double kapijk
+                  = kap[((i0 + kdx/2)*kdy + j0 + kdy/2)*kdz + k0 + kdz/2];
+                khijk += opijk*kapijk;
+              }}}
+          khij[k1 + sd.z/2] = khijk;}}}
+  else
+    for (int i1 = - sd.x/2; i1 <= (sd.x - 1)/2; i1++){
+      double *khi = kh + (i1 + sd.x/2)*sd.y*sd.z;
+      for (int j1 = - sd.y/2; j1 <= (sd.y - 1)/2; j1++){
+        double *khij = khi + (j1 + sd.y/2)*sd.z;
+        for (int k1 = - sd.z/2; k1 <= (sd.z - 1)/2; k1++){
+          double khijk = 0.;
+          for (int i0 = - kdx/2; i0 <= (kdx - 1)/2; i0++){
+            int i = (i0 - i1 + (3*gd.x)/2)%gd.x - gd.x/2;
+            double opi = op[0][abs(i)];
+            for (int j0 = - kdy/2; j0 <= (kdy - 1)/2; j0++){
+              int j = (j0 - j1 + (3*gd.y)/2)%gd.y - gd.y/2;
+              double opij = opi*op[1][abs(j)];
+              for (int k0 = - kdz/2; k0 <= (kdz - 1)/2; k0++){
+                int k = (k0 - k1 + (3*gd.z)/2)%gd.z - gd.z/2;
+                double opijk = opij*op[2][abs(k)];
+                double kapijk
+                  = kap[((i0 + kdx/2)*kdy + j0 + kdy/2)*kdz + k0 + kdz/2];
+                khijk += opijk*kapijk;
+              }}}
+          khij[k1 + sd.z/2] = khijk;}}}
   free(kap);
+  end = clock();
+  //-printf("elapsed time = %f, iterations = %d\n",
+	//-(double)(end - o.time)/CLOCKS_PER_SEC, sd.x*sd.y*sd.z);
 }
 
 static double kappaA(FF *ff, int l, Vector s, Vector as){
@@ -662,3 +575,12 @@ static double kappaA(FF *ff, int l, Vector s, Vector as){
         gam2 *= 2./a_l;
         kap_s += gam2 - gam;}
   return kap_s;}
+
+double kappa(FF *ff, int l, double s[3], double edges[3][3]){
+  Matrix Ai = *(Matrix *)edges;
+  double detA = invert(&Ai);
+  *(Matrix *)ff->Ai = Ai;
+  Vector as = {sqrt(Ai.xx*Ai.xx + Ai.yx*Ai.yx + Ai.zx*Ai.zx),
+               sqrt(Ai.xy*Ai.xy + Ai.yy*Ai.yy + Ai.zy*Ai.zy),
+               sqrt(Ai.xz*Ai.xz + Ai.yz*Ai.yz + Ai.zz*Ai.zz)};
+	return kappaA(ff, l, *(Vector *)s, as);}

@@ -1,3 +1,5 @@
+#include <stdbool.h>
+#include <time.h>
 
 struct O {
   char *test;
@@ -6,6 +8,8 @@ struct O {
   double e_const;
   double *e; // e[0] = e^0, e[l] = e^{l:}
   bool recX; // e^{L+1} excluded
+  clock_t time;
+	int level; // 0, 1 (1 to L-1), 2 (L and L+1)
 }; // struct for optional output
 extern struct O o;
 
@@ -31,7 +35,7 @@ typedef struct FF {
   double *aCut; // abs cutoffs
   int kLim[3]; // range of wavenumbers
   double *cL[3]; // c_x^2, c_y^2, c_z^2:
-	// coeffs for interpolating reciprocal sum
+  // coeffs for interpolating reciprocal sum
   double **khat;  // grid2grid stencils
   // khat[L] has dimensions topGridDim
   //khat[l], l < L, has dimensions that are the lesser of  2*nLim + 1

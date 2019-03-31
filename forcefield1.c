@@ -45,10 +45,12 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
     qsum2 += charge[i], q2sum += charge[i]*charge[i];
   qsum2 *= qsum2;
   double energy = 0.5*q2sum*ff->coeff1 - 0.5*qsum2*ff->coeff2;
+	if (strcmp(o.test, "4") == 0 && o.level != -1) energy = 0.;
   if (strcmp(o.test, "csCl") == 0) o.e_const = energy;
   // particle-to-particle
   energy *= wt[0];
-  energy += wt[0]*partcl2partcl(ff, N, F, r, charge);
+	if (strcmp(o.test, "4") == 0 && o.level == 0)
+		energy += wt[0]*partcl2partcl(ff, N, F, r, charge);
   if (strcmp(o.test, "csCl") == 0) o.e[0] = energy - o.e_const;
   for (int i = 0; i < N; i++)
     F[i].x *= wt[0], F[i].y *= wt[0], F[i].z *= wt[0];
@@ -67,10 +69,10 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
   double *el = (double *)calloc(gd.x*gd.y*gd.z, sizeof(double));
   // set e^L = calK^L q^L
   Triple sd = gd;
-  sd.z = sd.z/2 + 1; // use the fact that khat_{i,j,k} = khat_{-i,-j,-k}
   int l = ff->maxLevel;
   for (int m = 0; m < gd.x*gd.y*gd.z; m ++) q[l][m] *= wt[l];
-	DFTg2g(gd, el, q[l], sd, ff->khat[l]);
+	if (strcmp(o.test, "4") != 0 || o.level == ff->maxLevel)
+		DFTg2g(gd, el, q[l], sd, ff->khat[l]);
   if (strcmp(o.test, "csCl") == 0){
     o.e[l] = 0;
     for(int m = 0; m < gd.x*gd.y*gd.z; m++) o.e[l] += q[l][m]*el[m];
@@ -79,8 +81,8 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
     free(q[l + 1]);
     double *elp1 = el;
     gd.x  *= 2; gd.y *= 2;  gd.z *= 2;
-    el = (double *)malloc(gd.x*gd.y*gd.z*sizeof(double));
-    // prolongate e^{l+1} to e^l
+    el = (double *)calloc(gd.x*gd.y*gd.z, sizeof(double));
+    // add prolongated e^{l+1} to e^l
     prolongate(ff, gd, el, elp1);
     free(elp1);
     for (int m = 0; m < gd.x*gd.y*gd.z; m ++) q[l][m] *= wt[l];
@@ -89,8 +91,8 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
     Triple sd = {dmax < gd.x ? dmax : gd.x,
                  dmax < gd.y ? dmax : gd.y,
                  dmax < gd.z ? dmax : gd.z};
-    sd.z = sd.z/2 + 1; // use the fact that khat_{i,j,k} = khat_{i,j,-k}
-    grid2grid(gd, el, q[l], sd, ff->khat[l]);
+		if (strcmp(o.test, "4") != 0 || o.level == l)
+			grid2grid(gd, el, q[l], sd, ff->khat[l]);
     if (strcmp(o.test, "csCl") == 0){
       o.e[l] = 0;
       for(int m = 0; m < gd.x*gd.y*gd.z; m++) o.e[l] += q[l][m]*el[m];
@@ -126,7 +128,7 @@ static double partcl2partcl(FF *ff, int N, Vector *force, Vector *position,
   int nu = ff->orderAcc;
   double a_0 = ff->aCut[0];
   double energy = 0.;
-	for (int i = 0; i < N; i++) force[i].z = force[i].y = force[i].x = 0.;
+  for (int i = 0; i < N; i++) force[i].z = force[i].y = force[i].x = 0.;
   Vector as = {sqrt(Ai.xx*Ai.xx + Ai.yx*Ai.yx + Ai.zx*Ai.zx),
                sqrt(Ai.xy*Ai.xy + Ai.yy*Ai.yy + Ai.zy*Ai.zy),
                sqrt(Ai.xz*Ai.xz + Ai.yz*Ai.yz + Ai.zz*Ai.zz)};
@@ -137,82 +139,82 @@ static double partcl2partcl(FF *ff, int N, Vector *force, Vector *position,
   Triple gd = *(Triple *)ff->topGridDim;
   for (int l = ff->maxLevel; l >= 2; l--)
     gd.x *= 2, gd.y *= 2, gd.z *= 2;
-	int gd_prod = gd.x*gd.y*gd.z;
-	int *first = (int *)malloc(gd_prod*sizeof(int));
+  int gd_prod = gd.x*gd.y*gd.z;
+  int *first = (int *)malloc(gd_prod*sizeof(int));
   for (int m = 0; m < gd_prod; m++) first[m] = -1;
-	int *next = (int *)malloc(N*sizeof(int));
+  int *next = (int *)malloc(N*sizeof(int));
   for (int i = 0; i < N; i++){
     Vector ri = position[i];
-		Vector s = prod(Ai, ri);
+    Vector s = prod(Ai, ri);
     s.x = s.x - floor(s.x);
     s.y = s.y - floor(s.y);
     s.z = s.z - floor(s.z);
     Vector t = {(double)gd.x*s.x, (double)gd.y*s.y, (double)gd.z*s.z};
-		// Triple m = {(int)floor(t.x), (int)floor(t.y), (int)floor(t.z)};
-		Triple m = {(int)t.x, (int)t.y, (int)t.z};
+    // Triple m = {(int)floor(t.x), (int)floor(t.y), (int)floor(t.z)};
+    Triple m = {(int)t.x, (int)t.y, (int)t.z};
     int m_ = (m.x*gd.y + m.y)*gd.z + m.z;
-		next[i] = first[m_];
-		first[m_] = i;
+    next[i] = first[m_];
+    first[m_] = i;
   }
   // compute ranges - can be part of preprocessing
   Vector a = {sqrt(A.xx*A.xx + A.yx*A.yx + A.zx*A.zx),
                sqrt(A.xy*A.xy + A.yy*A.yy + A.zy*A.zy),
                sqrt(A.xz*A.xz + A.yz*A.yz + A.zz*A.zz)};
-	double a_0_plus = a_0
-		+ a.x/(double)gd.x + a.y/(double)gd.y+ a.z/(double)gd.z;
+  double a_0_plus = a_0
+    + a.x/(double)gd.x + a.y/(double)gd.y+ a.z/(double)gd.z;
   int nxlim = (int)ceil(as.x*(double)gd.x*a_0_plus - 1);
   int nylim = (int)ceil(as.y*(double)gd.y*a_0_plus - 1);
   int nzlim = (int)ceil(as.z*(double)gd.z*a_0_plus - 1);
-	int nxd = 2*nxlim + 1 < gd.x ? 2*nxlim + 1 : gd.x;
-	int nyd = 2*nylim + 1 < gd.y ? 2*nylim + 1 : gd.y;
-	int nzd = 2*nzlim + 1 < gd.z ? 2*nzlim + 1 : gd.z;
+  int nxd = 2*nxlim + 1 < gd.x ? 2*nxlim + 1 : gd.x;
+  int nyd = 2*nylim + 1 < gd.y ? 2*nylim + 1 : gd.y;
+  int nzd = 2*nzlim + 1 < gd.z ? 2*nzlim + 1 : gd.z;
   // compute cell neighbor lists - can be part of preprocessing
-	int ndim = nxd*nyd*nzd;
+  int ndim = nxd*nyd*nzd;
   Triple *n = (Triple *)calloc(ndim, sizeof(Triple));
   int k = 0; // number of occupied elements of n;
-	for (int nx = -nxd/2; nx < (nxd + 1)/2; nx++)
-		for (int ny = -nyd/2; ny < (nyd + 1)/2; ny++)
-			for (int nz = -nzd/2; nz < (nzd + 1)/2; nz++){
+  for (int nx = -nxd/2; nx < (nxd + 1)/2; nx++)
+    for (int ny = -nyd/2; ny < (nyd + 1)/2; ny++)
+      for (int nz = -nzd/2; nz < (nzd + 1)/2; nz++){
         Vector s = {(double)nx/(double)gd.x,
-										(double)ny/(double)gd.y, (double)nz/(double)gd.z};
+                    (double)ny/(double)gd.y, (double)nz/(double)gd.z};
         Vector r = prod(A, s);
-				double normr = sqrt(r.x*r.x + r.y*r.y + r.z*r.z);
-				Vector ATr = prodT(A, r);
-				double HATr = fabs(ATr.x)/(double)gd.x
-					+ fabs(ATr.y)/(double)gd.y + fabs(ATr.z)/(double)gd.z;
-				if (normr - HATr/normr < a_0){
-					Triple nk = {nx, ny, nz};
+        double normr = sqrt(r.x*r.x + r.y*r.y + r.z*r.z);
+        Vector ATr = prodT(A, r);
+        double HATr = fabs(ATr.x)/(double)gd.x
+          + fabs(ATr.y)/(double)gd.y + fabs(ATr.z)/(double)gd.z;
+        if (normr - HATr/normr < a_0){
+          Triple nk = {nx, ny, nz};
           n[k] = nk;
-					k++;}
+          k++;}
       }
-	int kcnt = k;
+  int kcnt = k;
   // compute interactions
   int m = 0;  // index of grid cell 1
-	int i = -1;  // particle number
+  int i = -1;  // particle number
   while (true){  // loop over i
-		if (i >= 0) i = next[i];
-		else i = first[m];
-		while (i < 0 && m + 1 < gd_prod){m++; i = first[m];}
-		//### loop exit ###
-		if (i < 0) break;
-		int mx = m/(gd.y*gd.z);
-		int my = (m - mx*gd.y*gd.z)/gd.z;
-		int mz = m - (mx*gd.y + my)*gd.z;
+    if (i >= 0) i = next[i];
+    else i = first[m];
+    while (i < 0 && m + 1 < gd_prod){m++; i = first[m];}
+    //### loop exit ###
+    if (i < 0) break;
+    int mx = m/(gd.y*gd.z);
+    int my = (m - mx*gd.y*gd.z)/gd.z;
+    int mz = m - (mx*gd.y + my)*gd.z;
     Vector ri = position[i];
-		int k = 0; // index of next neighbor triple for j
-		int j = i;
-		while (true){  // loop over j
-			j = next[j];
-			while (j < 0 && k < kcnt){
-				int mpnx = (mx + n[k].x + gd.x)%gd.x;
-				int mpny = (my + n[k].y + gd.y)%gd.y;
-				int mpnz = (mz + n[k].z + gd.z)%gd.z;
-				int mpn = (mpnx*gd.y + mpny)*gd.z + mpnz;
-				if (mpn > m) j = first[mpn];
-				k++;}
-			//### loop exit ###
-		  if (j < 0) break;
-			// compute interaction
+    int k = 0; // index of next neighbor triple for j
+    int j = i;
+    while (true){  // loop over j
+      j = next[j];
+      while (j < 0 && k < kcnt){
+        int mpnx = (mx + n[k].x + gd.x)%gd.x;
+        int mpny = (my + n[k].y + gd.y)%gd.y;
+        int mpnz = (mz + n[k].z + gd.z)%gd.z;
+        int mpn = (mpnx*gd.y + mpny)*gd.z + mpnz;
+        if (mpn > m) j = first[mpn];
+        k++;}
+      //### loop exit ###
+      if (j < 0) break;
+      // compute interaction
       Vector rj = position[j];
       Vector r = {rj.x - ri.x, rj.y - ri.y, rj.z - ri.z};
       // convert to nearest image
@@ -243,14 +245,14 @@ static double partcl2partcl(FF *ff, int N, Vector *force, Vector *position,
               double coeff = -1./(r2*sqrt(r2)) - 2.*tau1s/pow(a_0, 3);
               F.x += coeff*r.x, F.y += coeff*r.y, F.z += coeff*r.z;}}
       energy += charge[i]*charge[j]*sum;
-			F.x *= charge[i]*charge[j];
-			F.y *= charge[i]*charge[j];
-			F.z *= charge[i]*charge[j];
+      F.x *= charge[i]*charge[j];
+      F.y *= charge[i]*charge[j];
+      F.z *= charge[i]*charge[j];
       force[i].x += F.x, force[i].y += F.y,force[i].z += F.z;
       force[j].x -= F.x, force[j].y -= F.y,force[j].z -= F.z;
-			// end compute interaction
-		} // end loop over j
-	} // end loop over i
+      // end compute interaction
+    } // end loop over j
+  } // end loop over i
   return energy;}
 
 static double Bspline(FF *ff, int i, double t);
@@ -260,7 +262,7 @@ static void anterpolate(FF *ff, Triple gd, double *q, int N, double *charge,
   int nu = ff->orderAcc;
   for (int i = 0; i < N; i++){
     Vector ri = r[i];
-                Vector s = prod(Ai, ri);
+		Vector s = prod(Ai, ri);
     s.x = s.x - floor(s.x);
     s.y = s.y - floor(s.y);
     s.z = s.z - floor(s.z);
@@ -268,16 +270,22 @@ static void anterpolate(FF *ff, Triple gd, double *q, int N, double *charge,
     Vector em = {floor(t.x), floor(t.y), floor(t.z)};
     t.x -= em.x, t.y -= em.y, t.z -= em.z;
     Triple m = {(int)em.x, (int)em.y, (int)em.z};
-    for (int ni = 0; ni < nu; ni++){
-			double Qi = Bspline(ff, ni, t.x);
-      for (int nj = 0; nj < nu; nj++){
-				double Qj = Bspline(ff, nj, t.y);
-        for (int nk = 0; nk < nu; nk++){
-					double Qk = Bspline(ff, nk, t.z);
+    //**for (int nx = 0; nx < nu; nx++){
+    for (int nx = - nu/2; nx < nu/2; nx++){
+      //**double Qi = Bspline(ff, nx, t.x);
+      double Qi = Bspline(ff, nx + nu/2, t.x);
+      //**for (int ny = 0; ny < nu; ny++){
+      for (int ny = - nu/2; ny < nu/2; ny++){
+        //**double Qj = Bspline(ff, ny, t.y);
+        double Qj = Bspline(ff, ny + nu/2, t.y);
+        //**for (int nz = 0; nz < nu; nz++){
+        for (int nz = - nu/2; nz < nu/2; nz++){
+          //**double Qk = Bspline(ff, nz, t.z);
+          double Qk = Bspline(ff, nz + nu/2, t.z);
           // add to q_{m+n}
-          Triple m_n = {((m.x - ni) % gd.x + gd.x) % gd.x,
-                        ((m.y - nj) % gd.y + gd.y) % gd.y,
-                        ((m.z - nk) % gd.z + gd.z) % gd.z};
+          Triple m_n = {((m.x - nx) % gd.x + gd.x) % gd.x,
+                        ((m.y - ny) % gd.y + gd.y) % gd.y,
+                        ((m.z - nz) % gd.z + gd.z) % gd.z};
           q[(m_n.x*gd.y + m_n.y)*gd.z + m_n.z] += charge[i]*Qi*Qj*Qk;}}}}}
 
 static void restrict_(FF *ff, Triple gd, double *ql, double *qlm1){
@@ -311,46 +319,39 @@ static void grid2grid(Triple gd, double *el, double *ql,
           int kx = (mx - nx + gd.x) % gd.x;
           for (int ny = - sd.y/2; ny < (sd.y + 1)/2; ny++){
             int ky = (my - ny + gd.y) % gd.y;
-            for (int nz = 1 - sd.z; nz < 0; nz++){
-              int n = ((nx + sd.x/2)*sd.y + ny + sd.y/2)*sd.z + nz + sd.z - 1;
+            for (int nz = - sd.z/2; nz < (sd.z + 1)/2; nz++){
+              int n = ((nx + sd.x/2)*sd.y + ny + sd.y/2)*sd.z + nz + sd.z/2;
               int kz = (mz - nz + gd.z) % gd.z;
               int k = (kx*gd.y + ky)*gd.z + kz;
-              el[m] += kh[n]*ql[k];}
-            int nx_ = (- nx + sd.x/2)%sd.x - sd.x/2;
-            int ny_ = (- ny + sd.y/2)%sd.y - sd.y/2;
-            int nzStop = sd.z < (gd.z + 1)/2 ? sd.z : (gd.z + 1)/2;
-            for (int nz = 0; nz < nzStop; nz++){
-              int nz_ = - nz;
-              int n_ =
-                ((nx_ + sd.x/2)*sd.y + ny_ + sd.y/2)*sd.z + nz_ + sd.z - 1;
-              int kz = (mz - nz + gd.z) % gd.z;
-              int k = (kx*gd.y + ky)*gd.z + kz;
-              el[m] += kh[n_]*ql[k];}}}}}
+              el[m] += kh[n]*ql[k];}}}}}
 
-static void	DFT(Triple gd, double complex dL[], double fL[]);
-static void	invDFT(Triple gd, double fL[], double complex dL[]);
+static void DFT(Triple gd, double complex dL[], double fL[]);
+static void invDFT(Triple gd, double fL[], double complex dL[]);
 static void DFTg2g(Triple gd, double *el, double *ql, Triple sd, double *kh){
-	// el = DFT of ql
-	double complex *dl
-		= (double complex *)malloc(gd.x*gd.y*gd.z*sizeof(double complex));
-	DFT(gd, dl, ql);
-	// ql = kh . el pointwise
-	for (int i = 0; i < gd.x; i++)
-		for (int j = 0; j < gd.y; j++)
-			for (int k = 0; k < gd.z; k++){
-				int i_, j_, k_;
-				if (k < (gd.z + 1)/2)
-					i_ = gd.x - i, j_ = gd.y - j, k_ = - k;
-				else
-					i_ = i, j_ = j, k_ = k - gd.z;
-				i_ = (i_ + gd.x/2)%gd.x - gd.x/2;
-				j_ = (j_ + gd.y/2)%gd.y - gd.y/2;
-				dl[(i*gd.y + j)*gd.z + k]
-					*= kh[((i_ + sd.x/2)*sd.y + j_ + sd.y/2)*sd.z + k_ + sd.z - 1];
-			}
-	// el = invDFT of ql
-	invDFT(gd, el, dl);
-	free(dl);
+  // el = DFT of ql
+  double complex *dl
+    = (double complex *)malloc(gd.x*gd.y*gd.z*sizeof(double complex));
+  DFT(gd, dl, ql);
+  // ql = kh . el pointwise
+  for (int i = 0; i < gd.x; i++)
+    for (int j = 0; j < gd.y; j++)
+      for (int k = 0; k < gd.z; k++){
+        int i_, j_, k_;
+        i_ = i, j_ = j, k_ = k;
+        i_ = (i_ + gd.x/2)%gd.x - gd.x/2;
+        j_ = (j_ + gd.y/2)%gd.y - gd.y/2;
+        k_ = (k_ + gd.z/2)%gd.z - gd.z/2;
+        assert(i_ + sd.x/2 >= 0);
+        assert(j_ + sd.y/2 >= 0);
+        assert(k_ + sd.z/2 >= 0);
+        int n_ = ((i_ + sd.x/2)*sd.y + j_ + sd.y/2)*sd.z + k_ + sd.z/2;
+        assert( 0 <= n_ && n_ < gd.x*gd.y*gd.z);
+        dl[(i*gd.y + j)*gd.z + k]
+          *= kh[((i_ + sd.x/2)*sd.y + j_ + sd.y/2)*sd.z + k_ + sd.z/2];
+      }
+  // el = invDFT of ql
+  invDFT(gd, el, dl);
+  free(dl);
 }
 
 static void prolongate(FF *ff, Triple gd, double *el, double *elp1){
@@ -381,20 +382,26 @@ static void interpolate(FF *ff, int N, Vector *E, Vector *r, Triple gd,
   for (int i = 0; i < N; i++){
     double Ex = 0., Ey = 0., Ez = 0.;
     Vector ri = r[i];
-		Vector s = prod(Ai, ri);
+    Vector s = prod(Ai, ri);
     Vector t = {(double)gd.x*s.x, (double)gd.y*s.y, (double)gd.z*s.z};
     Vector em = {floor(t.x), floor(t.y), floor(t.z)};
     t.x -= em.x, t.y -= em.y, t.z -= em.z;
     Triple m = {(int)em.x, (int)em.y, (int)em.z};
-    for (int ni = 0; ni < nu; ni++){
+    //**for (int ni = 0; ni < nu; ni++){
+    for (int ni = - nu/2; ni < nu/2; ni++){
       double Qi1;
-      double Qi = Bspline1(&Qi1, ff, ni, t.x);
-      for (int nj = 0; nj < nu; nj++){
+      //**double Qi = Bspline1(&Qi1, ff, ni, t.x);
+      double Qi = Bspline1(&Qi1, ff, ni + nu/2, t.x);
+      //**for (int nj = 0; nj < nu; nj++){
+      for (int nj = - nu/2; nj < nu/2; nj++){
         double Qj1;
-				double Qj = Bspline1(&Qj1, ff, nj, t.y);
-        for (int nk = 0; nk < nu; nk++){
+        //**double Qj = Bspline1(&Qj1, ff, nj, t.y);
+        double Qj = Bspline1(&Qj1, ff, nj + nu/2, t.y);
+        //**for (int nk = 0; nk < nu; nk++){
+        for (int nk = - nu/2; nk < nu/2; nk++){
           double Qk1;
-					double Qk = Bspline1(&Qk1, ff, nk, t.z);
+          //**double Qk = Bspline1(&Qk1, ff, nk, t.z);
+          double Qk = Bspline1(&Qk1, ff, nk + nu/2, t.z);
           Triple m_n = {((m.x - ni) % gd.x + gd.x) % gd.x,
                         ((m.y - nj) % gd.y + gd.y) % gd.y,
                         ((m.z - nk) % gd.z + gd.z) % gd.z};
@@ -403,13 +410,13 @@ static void interpolate(FF *ff, int N, Vector *E, Vector *r, Triple gd,
           Ey -= Qi*Qj1*Qk*elm_n;
           Ez -= Qi*Qj*Qk1*elm_n;}}}
     Ex *= (double)gd.x, Ey *= (double)gd.y, Ez *= (double)gd.z;
-		Vector E_ = {Ex, Ey, Ez};
-		E[i] = prodT(Ai, E_);}}
+    Vector E_ = {Ex, Ey, Ez};
+    E[i] = prodT(Ai, E_);}}
 
 static double Bspline(FF *ff, int i, double t){
   // assumes 0 <= i < nu and 0 <= t < 1
-	int nu = ff->orderAcc;
-	if (i >= nu/2){i = nu - 1 - i; t = 1. - t;}
+  int nu = ff->orderAcc;
+  if (i >= nu/2){i = nu - 1 - i; t = 1. - t;}
   // piece_i(i + t) = q_i0 + q_i1*t + ... + q_{i,nu-1}*t^{nu-1}
   double *Qi = ff->Q + i*nu;
   double Qit = Qi[nu-1];
@@ -420,16 +427,16 @@ static double Bspline(FF *ff, int i, double t){
 static double Bspline1(double *Qi1t, FF *ff, int i, double t){
   // assumes 0 <= i < nu and 0 <= t < 1
   // piece_i(i + t) = q_i0 + q_i1*t + ... + q_{i,nu-1}*t^{nu-1}
-	int nu = ff->orderAcc;
-	double sign = 1.;
-	if (i >= nu/2){i = nu - 1 - i; t = 1. - t; sign = -1.;}
+  int nu = ff->orderAcc;
+  double sign = 1.;
+  if (i >= nu/2){i = nu - 1 - i; t = 1. - t; sign = -1.;}
   double *Qi = ff->Q + i*nu;
   double Qit = Qi[nu-1];
   *Qi1t = 0.;
   for (int k = nu - 2; k >= 0; k--){
     *Qi1t = Qit + t*(*Qi1t);
     Qit = Qi[k] + t*Qit;}
-	*Qi1t *= sign;
+  *Qi1t *= sign;
   return Qit;}
 
 static Vector prod(Matrix M, Vector v){
@@ -444,38 +451,144 @@ static Vector prodT(Matrix M, Vector v){
                 M.xz*v.x + M.yz*v.y + M.zz*v.z};
   return MTx;}
 
-static void	DFT(Triple gd, double complex dL[], double fL[]){
-	double twopi = 8.*atan(1.);
-	for (int kx = 0; kx < gd.x; kx++)
-		for (int ky = 0; ky < gd.y; ky++)
-			for (int kz = 0; kz < gd.z; kz++){
-				double complex dLk = 0.;
-				double cx = twopi*(double)kx/gd.x;
-				double cy = twopi*(double)ky/gd.y;
-				double cz = twopi*(double)kz/gd.z;
-				for (int nx = 0; nx < gd.x; nx++)
-					for (int ny = 0.; ny < gd.y; ny++)
-						for (int nz = 0.; nz < gd.z; nz++){
-							double cn	= cx*(double)nx + cy*(double)ny + cz*(double)nz;
-							dLk += cexp(-cn*I)*fL[(nx*gd.y + ny)*gd.z + nz];}
-				dL[(kx*gd.y + ky)*gd.z + kz] = dLk;
-			}
+static void DFT(Triple gd, double complex dL[], double fL[]){
+  double twopi = 8.*atan(1.);
+  for (int kx = 0; kx < gd.x; kx++)
+    for (int ky = 0; ky < gd.y; ky++)
+      for (int kz = 0; kz < gd.z; kz++){
+        double complex dLk = 0.;
+        double cx = twopi*(double)kx/gd.x;
+        double cy = twopi*(double)ky/gd.y;
+        double cz = twopi*(double)kz/gd.z;
+        for (int nx = 0; nx < gd.x; nx++)
+          for (int ny = 0.; ny < gd.y; ny++)
+            for (int nz = 0.; nz < gd.z; nz++){
+              double cn = cx*(double)nx + cy*(double)ny + cz*(double)nz;
+              dLk += cexp(-cn*I)*fL[(nx*gd.y + ny)*gd.z + nz];}
+        dL[(kx*gd.y + ky)*gd.z + kz] = dLk;
+      }
 }
 
-static void	invDFT(Triple gd, double fL[], double complex dL[]){
-	double twopi = 8.*atan(1.);
-	for (int nx = 0; nx < gd.x; nx++)
-		for (int ny = 0; ny < gd.y; ny++)
-			for (int nz = 0; nz < gd.z; nz++){
-				double fLn = 0.;
-				double cx = twopi*(double)nx/gd.x;
-				double cy = twopi*(double)ny/gd.y;
-				double cz = twopi*(double)nz/gd.z;
-				for (int kx = 0; kx < gd.x; kx++)
-					for (int ky = 0.; ky < gd.y; ky++)
-						for (int kz = 0.; kz < gd.z; kz++){
-							double ck	= cx*(double)kx + cy*(double)ky + cz*(double)kz;
-							fLn += creal(cexp(ck*I)*dL[(kx*gd.y + ky)*gd.z + kz]);}
-				fL[(nx*gd.y + ny)*gd.z + nz] = fLn/(gd.x*gd.y*gd.z);
-			}
+static void invDFT(Triple gd, double fL[], double complex dL[]){
+  double twopi = 8.*atan(1.);
+  for (int nx = 0; nx < gd.x; nx++)
+    for (int ny = 0; ny < gd.y; ny++)
+      for (int nz = 0; nz < gd.z; nz++){
+        double fLn = 0.;
+        double cx = twopi*(double)nx/gd.x;
+        double cy = twopi*(double)ny/gd.y;
+        double cz = twopi*(double)nz/gd.z;
+        for (int kx = 0; kx < gd.x; kx++)
+          for (int ky = 0.; ky < gd.y; ky++)
+            for (int kz = 0.; kz < gd.z; kz++){
+              double ck = cx*(double)kx + cy*(double)ky + cz*(double)kz;
+              fLn += creal(cexp(ck*I)*dL[(kx*gd.y + ky)*gd.z + kz]);}
+        fL[(nx*gd.y + ny)*gd.z + nz] = fLn/(gd.x*gd.y*gd.z);
+      }
+}
+
+double k0_Lm1(FF *ff, double s[3], double sp[3]){  // for testing
+	// k0 + k1 + ... + k_{L-1}, see Eq.(13)
+	Triple gd = *(Triple *)ff->topGridDim;
+	Triple sd = gd;
+	int dmax = 2*ff->nLim + 1;
+	int nu = ff->orderAcc;
+	// storage for nonzero values Q(M_x x - m_x), etc
+	double *Qx = (double *)malloc(nu*sizeof(double));
+	double *Qy = (double *)malloc(nu*sizeof(double));
+	double *Qz = (double *)malloc(nu*sizeof(double));
+	// storage for nonzero values Q(M_x x' - m_x), etc
+	double *Qxp = (double *)malloc(nu*sizeof(double));
+	double *Qyp = (double *)malloc(nu*sizeof(double));
+	double *Qzp = (double *)malloc(nu*sizeof(double));
+	double k1ssp = 0.;  // return value
+	for (int l = ff->maxLevel - 1; l > 0; l--){
+		gd.x *= 2, gd.y *= 2, gd.z *= 2;
+		if (l != o.level) continue;
+		sd.x = dmax < gd.x ? dmax : gd.x;
+		sd.y = dmax < gd.y ? dmax : gd.y;
+		sd.z = dmax < gd.z ? dmax : gd.z;
+		// let  M = diag(Mx, My, Mz)
+		// and s = (m0 + t)/M and s' = (n0 + t')/M
+		// then eq (13) can be written as sum Q(t + m)kh_{m-n-k} Q(t' + n)
+		// over 0 <= m, n < nu where k = m0 - n0
+		double tx = (double)gd.x*s[0],
+			ty = (double)gd.y*s[1],
+			tz = (double)gd.z*s[2];
+		double emx = floor(tx), emy = floor(ty), emz = floor(tz);
+		tx -= emx, ty -= emy, tz -= emz;
+		// compute Qs
+		for (int n = 0; n < nu; n++){
+			Qx[n] = Bspline(ff, n, tx);
+			Qy[n] = Bspline(ff, n, ty);
+			Qz[n] = Bspline(ff, n, tz);}
+		double txp = (double)gd.x*sp[0],
+			typ = (double)gd.y*sp[1],
+			tzp = (double)gd.z*sp[2];
+		double enx = floor(txp), eny = floor(typ), enz = floor(tzp);
+		txp -= enx, typ -= eny, tzp -= enz;
+		// compute Qsp
+		for (int n = 0; n < nu; n++){
+			Qxp[n] = Bspline(ff, n, txp);
+			Qyp[n] = Bspline(ff, n, typ);
+			Qzp[n] = Bspline(ff, n, tzp);}
+		int kx = (int)(emx - enx), ky = (int)(emy - eny), kz = (int)(emz - enz);
+		double *kh = ff->khat[l];
+		for (int mx = 0; mx < nu; mx++)
+			for (int nx = 0; nx < nu; nx++){
+				int jx = ((mx - nx - kx + gd.x/2)%gd.x + gd.x)%gd.x - gd.x/2;
+				if (jx < - sd.x/2 || jx > (sd.x - 1)/2) continue;
+				double QxQxp = Qx[mx]*Qxp[nx];
+				for (int my = 0; my < nu; my++)
+					for (int ny = 0; ny < nu; ny++){
+						int jy = ((my - ny - ky + gd.y/2)%gd.y + gd.y)%gd.y - gd.y/2;
+						if (jy < - sd.y/2 || jy > (sd.y - 1)/2) continue;
+						double QxQxpQyQyp = QxQxp*Qy[my]*Qyp[ny];
+						for (int mz = 0; mz < nu; mz++)
+							for (int nz = 0; nz < nu; nz++){
+								int jz = ((mz - nz - kz + gd.z/2)%gd.z + gd.z)%gd.z - gd.z/2;
+								if (jz < - sd.z/2 || jz > (sd.z - 1)/2) continue;
+								double factor = QxQxpQyQyp*Qz[mz]*Qzp[nz];
+								int j = ((jx + sd.x/2)*sd.y + jy + sd.y/2)*sd.z + jz + sd.z/2;
+								k1ssp += factor*kh[j];}}}
+	}
+	free(Qx);free(Qy);free(Qz);free(Qxp);free(Qyp);free(Qzp);
+	if (strcmp(o.test, "4") == 0 && o.level == 0) k1ssp = 0;
+	// compute level 0 interaction
+  Matrix A = *(Matrix *)ff->A;
+  Matrix Ai = *(Matrix *)ff->Ai;
+  double a_0 = ff->aCut[0];
+  Vector as = {sqrt(Ai.xx*Ai.xx + Ai.yx*Ai.yx + Ai.zx*Ai.zx),
+               sqrt(Ai.xy*Ai.xy + Ai.yy*Ai.yy + Ai.zy*Ai.zy),
+               sqrt(Ai.xz*Ai.xz + Ai.yz*Ai.yz + Ai.zz*Ai.zz)};
+  double pxlim = ceil(a_0*as.x - 0.5);
+  double pylim = ceil(a_0*as.y - 0.5);
+  double pzlim = ceil(a_0*as.z - 0.5);
+	// convert to nearest image
+	Vector ds = {s[0] - sp[0], s[1] - sp[1], s[2] - sp[2]};
+  Vector r = prod(A, ds);
+	Vector p = {floor(ds.x + 0.5), floor(ds.y + 0.5), floor(ds.z + 0.5)};
+	Vector Ap = prod(A, p);
+	r.x -= Ap.x; r.y -= Ap.y; r.z -= Ap.z;
+	Vector r0 = r;
+	double sum = 0.;
+	for (p.x = - pxlim; p.x <= pxlim; p.x++)
+		for (p.y = - pylim; p.y <= pylim; p.y++)
+			for (p.z = - pzlim; p.z <= pzlim; p.z++){
+				Ap = prod(A, p);
+				r.x = r0.x + Ap.x; r.y = r0.y + Ap.y; r.z = r0.z + Ap.z;
+				double r2 = r.x*r.x + r.y*r.y + r.z*r.z;
+				if (r2 < a_0*a_0){
+					double s = r2/(a_0*a_0) - 1.;
+					// add V(|r|) = 1/|r| - tau(s)/a_0 to sum
+					// F on particle i = V'(|r|)r/|r|
+					// = (- 1/|r|^3 - 2 tau'(s)/a_0^3)r
+					double taus = ff->tau[nu-1];
+					for (int k = nu - 2; k >= 0; k--){
+						taus = ff->tau[k] + s*taus;}
+					sum += 1./sqrt(r2) - taus/a_0;
+				}}
+	if (strcmp(o.test, "4") != 0 || o.level == 0) 
+		k1ssp += sum;
+	return k1ssp;
 }
