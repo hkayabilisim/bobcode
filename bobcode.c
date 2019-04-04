@@ -84,6 +84,7 @@ int main(int argc, char **argv){
   
   FF_get_topGridDim(ff, M);
   printf("%-30s : %10.8f\n","time",msm4g_toc());
+  printf("%-30s : %s\n", "data",argv[1]);
   printf("%-30s : %d\n", "L",FF_get_maxLevel(ff));
   printf("%-30s : %f\n", "nbar",FF_get_relCutoff(ff));
   printf("%-30s : %d\n", "nu",FF_get_orderAcc(ff));
