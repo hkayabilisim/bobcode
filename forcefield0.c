@@ -1,4 +1,6 @@
 // file forcefield.c
+// compile with -lfftw3 or -DNO_FFT
+
 // invoke methods in following order:
 //   FF_new, FF_set_<parm>, FF_build
 // then invoke following in any order:
@@ -12,6 +14,7 @@
 #include <math.h>
 #include <string.h>
 #include <time.h>
+#include <fftw3.h>
 #include "forcefield.h"
 
 typedef struct Vector {double x, y, z;} Vector;
@@ -20,6 +23,9 @@ typedef struct Triple {int x, y, z;} Triple;
 
 FF *FF_new(void){
   FF *ff = (FF *)calloc(1, sizeof(FF));
+#ifndef NO_FFT
+  ff->FFT = true;
+#endif
   return ff;}
 
 // for each computational parameter
@@ -43,6 +49,13 @@ void FF_set_tolDir(FF *ff, double tolDir){
   ff->tolDir = tolDir;}
 void FF_set_tolRec(FF *ff, double tolRec){
   ff->tolRec = tolRec;}
+void FF_set_FFT(FF *ff, bool FFT){
+#ifdef NO_FFT
+  if (FFT){
+    printf("FFT unavailable; execution aborted\n");
+    exit(1);}
+#endif
+  ff->FFT = FFT;}
 
 // helper functions:
 static double invert(Matrix *A);
@@ -134,6 +147,7 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   for (int j = 0; j < nknots; j++)
     for (int k = 0; k < nu; k++)
       ff->Q[j*nu + k] = Q[(nu - 1 - k)*nknots + j];
+  free(Q);
 
   // build two-scale stencil J[n], n = -nu/2, ..., nu/2
   ff->J = (double *)calloc(nu + 1, sizeof(double));
@@ -186,6 +200,16 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   ff->khat = (double **)malloc((l+1)*sizeof(double *));
   int di = ff->topGridDim[0], dj = ff->topGridDim[1], dk = ff->topGridDim[2];
   ff->khat[l] = (double *)calloc(di*dj*dk, sizeof(double));
+#ifdef NO_FFT
+  ff->fftw_in = (double complex *)malloc(di*dj*dk*sizeof(double complex));
+#else
+  ff->fftw_in = (fftw_complex *)fftw_malloc(di*dj*dk*sizeof(fftw_complex));
+  ff->forward = fftw_plan_dft_3d(di, dj, dk, ff->fftw_in, ff->fftw_in,
+                                FFTW_FORWARD, FFTW_ESTIMATE);
+  ff->backward = fftw_plan_dft_3d(di, dj, dk, ff->fftw_in, ff->fftw_in,
+                                FFTW_BACKWARD, FFTW_ESTIMATE);
+#endif
+
   int dmax = 2*ff->nLim + 1;
   for (l = ff->maxLevel-1; l > 0; l--){
     di *= 2; dj *= 2; dk *= 2;
@@ -213,6 +237,8 @@ double FF_get_tolDir(FF*ff) {
   return ff->tolDir;}
 double FF_get_tolRec(FF*ff) {
   return ff->tolRec;}
+bool FF_get_FFT(FF *ff){
+        return ff->FFT;}
 
 double FF_get_errEst(FF *ff, int N, double *charge){
   // calculate C_{nu-1}
@@ -250,6 +276,7 @@ static void dALp1(FF *ff, Triple gd, Triple sd, double kh[], double detA);
 static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
                     Vector as);
 static void DFT(Triple gd, double dL[], double khatL[]);
+static void FFT(FF *ff, Triple gd, double dL[], double khatL[]);
 void FF_rebuild(FF *ff, double edges[3][3]) {
   *(Matrix *)ff->A = *(Matrix *)edges;
   Matrix A = *(Matrix *)ff->A;
@@ -287,46 +314,39 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
   double pi = 4.*atan(1.);
   ff->coeff2 = pi/(beta*beta*detA);  // coeff of 1/2(sum_i q_i)^2
 
-  // build grid-to-grid stencil for level L
+  // build grid-to-grid stencil for levels L, L + 1
+  // ff->khat[L] = d^{L+1} + DFT of khat^L
   Triple gd = *(Triple *)ff->topGridDim;
-  // determine range of kernel evaluations
+  // determine range of kernel evaluations khat^L
+  int kdmax = 2*ff->nLim + 1;
   Triple sd = gd;
-  // calculate level L+1 kappa hat
+  sd.x = kdmax < gd.x ? kdmax : gd.x;
+  sd.y = kdmax < gd.y ? kdmax : gd.y;
+  sd.z = kdmax < gd.z ? kdmax : gd.z;
+  // calculate level L kappa hat
   int L = ff->maxLevel;
-  double *kh = ff->khat[L];
-  // kappa_hat_n = sum_k chi(k) c'(k) exp(2 pi i k . H_L n)
-  // kh = d^{L+1} + DFT of khat^L
-  for (int i = 0; i < sd.x*sd.y*sd.z; i++) kh[i] = 0.;
-  kaphatA(ff, L, gd, sd, kh, as); // add in real space contribution
-  double *khatL = (double *)malloc(gd.x*gd.y*gd.z*sizeof(double));
+  double *khL = (double *)calloc(sd.x*sd.y*sd.z, sizeof(double));
+  kaphatA(ff, L, gd, sd, khL, as); // add in real space contribution
+  double *khatL = (double *)calloc(gd.x*gd.y*gd.z, sizeof(double));
   // expand kh into khatL
-  for (int i = 0; i < gd.x; i++)
-    for (int j = 0; j < gd.y; j++)
-      for (int k = 0; k < gd.z; k++){
-        int i_, j_, k_;
-        i_ = i, j_ = j, k_ = k;
-        i_ = (i_ + gd.x/2)%gd.x - gd.x/2;
-        j_ = (j_ + gd.y/2)%gd.y - gd.y/2;
-        k_ = (k_ + gd.z/2)%gd.z - gd.z/2;
-        khatL[(i*gd.y + j)*gd.z + k]
-          = kh[((i_ + sd.x/2)*sd.y + j_ + sd.y/2)*sd.z + k_ + sd.z/2];
-      }
-  double *dL = (double *)malloc(gd.x*gd.y*gd.z*sizeof(double));
-  DFT(gd, dL, khatL);
+  for (int mx = - sd.x/2; mx <= (sd.x - 1)/2; mx++)
+    for (int my =  - sd.y/2; my <= (sd.y - 1)/2; my++)
+      for (int mz =  - sd.z/2; mz <= (sd.z - 1)/2; mz++){
+        int nx = (mx + gd.x) % gd.x;
+        int ny = (my + gd.y) % gd.y;
+        int nz = (mz + gd.z) % gd.z;
+        khatL[(nx*gd.y + ny)*gd.z + nz]
+          = khL[((mx + sd.x/2)*sd.y + my + sd.y/2)*sd.z + mz + sd.z/2];}
+  free(khL);
+  double *kh = ff->khat[L];
+  if (ff->FFT) FFT(ff, gd, kh, khatL);
+  else DFT(gd, kh, khatL);
   free(khatL);
-  // compress dL into kh
-  for (int i_ = - gd.x/2; i_ <= (gd.x - 1)/2; i_++)
-    for (int j_ = - gd.y/2; j_ <= (gd.y - 1)/2; j_++)
-      for (int k_ = - gd.z/2; k_ <= (gd.z - 1)/2; k_++){
-        int i = (i_ + gd.x)%gd.x, j = (j_ + gd.y)%gd.y, k = (k_ + gd.z)%gd.z;
-        kh[((i_ + sd.x/2)*sd.y + j_ + sd.y/2)*sd.z + k_ + sd.z/2]
-          = dL[(i*gd.y + j)*gd.z + k];
-      }
-  free(dL);
-  dALp1(ff, gd, sd, kh, detA);  // add in d^{L+1}(A)
+  // add in d^{L+1}(A)
+  // d^{L+1}(A)_n = sum_k chi(k) c'(k) exp(2 pi i k . H_L n)
+  dALp1(ff, gd, gd, kh, detA);
 
   // build grid-to-grid stencil for levels L-1, ..., 1
-  int kdmax = 2*ff->nLim + 1;
   for (int l = L - 1; l > 0; l--){
     gd.x *= 2; gd.y *= 2; gd.z *= 2;
     sd.x = kdmax < gd.x ? kdmax : gd.x;
@@ -339,8 +359,26 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
 }
 
 void FF_delete(FF *ff) {
-  ;
-  //... free memory;
+  free(ff->aCut);
+  free(ff->tau);
+  free(ff->Q);
+  free(ff->J);
+  for (int l = 1; l <= ff->maxLevel; l++){
+    free(ff->khat[l]);
+    for (int alpha = 0; alpha < 3; alpha++)
+      free(ff->omegap[l][alpha]);}
+  free(ff->khat);
+  free(ff->omegap);
+  for (int alpha = 0; alpha < 3; alpha++)
+    free(ff->cL[alpha]);
+#ifdef NO_FFT
+  free(ff->fftw_in);
+#else
+  fftw_destroy_plan(ff->forward);
+  fftw_destroy_plan(ff->backward);
+  fftw_free(ff->fftw_in);
+#endif
+  free(ff);
 }
 
 //helper functions
@@ -413,13 +451,16 @@ static void dALp1(FF *ff, Triple gd, Triple sd, double kh[], double detA){
   // loop on vec k
   // for kx = 0, 1, -1, ..., kLim.x, -kLim.x
   for (int kx = - kLim.x ; kx <= kLim.x; kx++){
-    int kx0 = ((kx + gd.x/2) % gd.x + gd.x) % gd.x - gd.x/2;
+    int kx1 = (kx % gd.x + gd.x) % gd.x;
+    int kx0 = (kx1 + gd.x/2) % gd.x - gd.x/2;
     double cLx = ff->cL[0][abs(kx0)];
     for (int ky = - kLim.y; ky <= kLim.y; ky++){
-      int ky0 = ((ky + gd.y/2) % gd.y + gd.y) % gd.y - gd.y/2;
+      int ky1 = (ky % gd.y + gd.y) % gd.y;
+      int ky0 = (ky1 + gd.y/2) % gd.y - gd.y/2;
       double cLxy = cLx*ff->cL[1][abs(ky0)];
       for (int kz = - kLim.z; kz <= kLim.z; kz++){
-        int kz0 = ((kz + gd.z/2) % gd.z + gd.z) % gd.z - gd.z/2;
+        int kz1 = (kz % gd.z + gd.z) % gd.z;
+        int kz0 = (kz1 + gd.z/2) % gd.z - gd.z/2;
         double cLxyz = cLxy*ff->cL[2][abs(kz0)];
         double fkx = (double)kx, fky = (double)ky, fkz = (double)kz;
         double Aikx = Ai.xx*fkx + Ai.yx*fky + Ai.zx*fkz,
@@ -427,8 +468,8 @@ static void dALp1(FF *ff, Triple gd, Triple sd, double kh[], double detA){
           Aikz = Ai.xz*fkx + Ai.yz*fky + Ai.zz*fkz;
         double k2 = Aikx*Aikx + Aiky*Aiky + Aikz*Aikz;
         double chi_cL = k2 == 0 ? 0 : exp(- pi2beta2*k2)/(pidetA*k2)*cLxyz;
-          kh[((kx0 + sd.x/2)*sd.y + ky0 + sd.y/2)*sd.z + kz0 + sd.z/2]
-            += chi_cL*gd.x*gd.y*gd.z;
+        kh[(kx1*gd.y + ky1)*gd.z + kz1]
+          += chi_cL*gd.x*gd.y*gd.z;
       }
     }
   }
@@ -450,6 +491,19 @@ static void DFT(Triple gd, double dL[], double khatL[]){
                 *khatL[(nx*gd.y + ny)*gd.z + nz];
         dL[(kx*gd.y + ky)*gd.z + kz] = dLk;
       }
+}
+
+static void FFT(FF *ff, Triple gd, double dL[], double khatL[]){
+#ifdef NO_FFT
+  ;
+#else
+  // dL = DFT of khatL
+  for (int i = 0; i < gd.x*gd.y*gd.z; i++)
+    ff->fftw_in[i] = (fftw_complex)khatL[i];
+  fftw_execute(ff->forward);
+  for (int i = 0; i < gd.x*gd.y*gd.z; i++)
+    dL[i] = creal(ff->fftw_in[i]);
+#endif
 }
 
 static double kappaA(FF *ff, int l, Vector s, Vector as);  // kappa_l(A s; A)
@@ -479,7 +533,7 @@ static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
   int opLim = 2*ff->nLim;
   clock_t end = clock();
   //-printf("elapsed time = %f, iterations = %d\n",
-	//-(double)(end - o.time)/CLOCKS_PER_SEC, kdx*kdy*kdz);
+  //-(double)(end - o.time)/CLOCKS_PER_SEC, kdx*kdy*kdz);
   begin = clock();
   //construct kappa hat element by element
   if (l == ff->maxLevel)
@@ -527,7 +581,7 @@ static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
   free(kap);
   end = clock();
   //-printf("elapsed time = %f, iterations = %d\n",
-	//-(double)(end - o.time)/CLOCKS_PER_SEC, sd.x*sd.y*sd.z);
+  //-(double)(end - o.time)/CLOCKS_PER_SEC, sd.x*sd.y*sd.z);
 }
 
 static double kappaA(FF *ff, int l, Vector s, Vector as){
@@ -583,4 +637,4 @@ double kappa(FF *ff, int l, double s[3], double edges[3][3]){
   Vector as = {sqrt(Ai.xx*Ai.xx + Ai.yx*Ai.yx + Ai.zx*Ai.zx),
                sqrt(Ai.xy*Ai.xy + Ai.yy*Ai.yy + Ai.zy*Ai.zy),
                sqrt(Ai.xz*Ai.xz + Ai.yz*Ai.yz + Ai.zz*Ai.zz)};
-	return kappaA(ff, l, *(Vector *)s, as);}
+  return kappaA(ff, l, *(Vector *)s, as);}

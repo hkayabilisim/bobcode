@@ -1,4 +1,4 @@
-// file forcefield.c
+// file forcefield1.c
 // invoke methods in following order:
 //   FF_new, FF_set_<parm>, FF_build
 // then invoke following in any order:
@@ -27,7 +27,8 @@ static void restrict_(FF *ff, Triple gd, double *ql, double *qlm1);
 static void prolongate(FF *ff, Triple gd, double *el, double *elp1);
 static void grid2grid(Triple gd, double *el, double *ql,
                       Triple sd, double *kh);
-static void DFTg2g(Triple gd, double *el, double *ql, Triple sd, double *kh);
+static void FFTg2g(FF *ff, Triple gd, double *el, double *ql, double *kh);
+static void DFTg2g(Triple gd, double *el, double *ql, double *kh);
 static void interpolate(FF *ff, int N, Vector *E, Vector *r, Triple gd,
                           double *el);
 double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
@@ -45,12 +46,12 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
     qsum2 += charge[i], q2sum += charge[i]*charge[i];
   qsum2 *= qsum2;
   double energy = 0.5*q2sum*ff->coeff1 - 0.5*qsum2*ff->coeff2;
-	if (strcmp(o.test, "4") == 0 && o.level != -1) energy = 0.;
+  if (strcmp(o.test, "4") == 0 && o.level != -1) energy = 0.;
   if (strcmp(o.test, "csCl") == 0) o.e_const = energy;
   // particle-to-particle
   energy *= wt[0];
-	if (strcmp(o.test, "4") == 0 && o.level == 0)
-		energy += wt[0]*partcl2partcl(ff, N, F, r, charge);
+  if (strcmp(o.test, "4") != 0 || o.level == 0)
+    energy += wt[0]*partcl2partcl(ff, N, F, r, charge);
   if (strcmp(o.test, "csCl") == 0) o.e[0] = energy - o.e_const;
   for (int i = 0; i < N; i++)
     F[i].x *= wt[0], F[i].y *= wt[0], F[i].z *= wt[0];
@@ -71,8 +72,9 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
   Triple sd = gd;
   int l = ff->maxLevel;
   for (int m = 0; m < gd.x*gd.y*gd.z; m ++) q[l][m] *= wt[l];
-	if (strcmp(o.test, "4") != 0 || o.level == ff->maxLevel)
-		DFTg2g(gd, el, q[l], sd, ff->khat[l]);
+  if (strcmp(o.test, "4") != 0 || o.level == ff->maxLevel){
+    if (ff->FFT) FFTg2g(ff, gd, el, q[l], ff->khat[l]);
+    else DFTg2g(gd, el, q[l], ff->khat[l]);}
   if (strcmp(o.test, "csCl") == 0){
     o.e[l] = 0;
     for(int m = 0; m < gd.x*gd.y*gd.z; m++) o.e[l] += q[l][m]*el[m];
@@ -91,8 +93,8 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
     Triple sd = {dmax < gd.x ? dmax : gd.x,
                  dmax < gd.y ? dmax : gd.y,
                  dmax < gd.z ? dmax : gd.z};
-		if (strcmp(o.test, "4") != 0 || o.level == l)
-			grid2grid(gd, el, q[l], sd, ff->khat[l]);
+    if (strcmp(o.test, "4") != 0 || o.level == l)
+      grid2grid(gd, el, q[l], sd, ff->khat[l]);
     if (strcmp(o.test, "csCl") == 0){
       o.e[l] = 0;
       for(int m = 0; m < gd.x*gd.y*gd.z; m++) o.e[l] += q[l][m]*el[m];
@@ -253,6 +255,9 @@ static double partcl2partcl(FF *ff, int N, Vector *force, Vector *position,
       // end compute interaction
     } // end loop over j
   } // end loop over i
+  free(n);
+  free(first);
+  free(next);
   return energy;}
 
 static double Bspline(FF *ff, int i, double t);
@@ -262,7 +267,7 @@ static void anterpolate(FF *ff, Triple gd, double *q, int N, double *charge,
   int nu = ff->orderAcc;
   for (int i = 0; i < N; i++){
     Vector ri = r[i];
-		Vector s = prod(Ai, ri);
+    Vector s = prod(Ai, ri);
     s.x = s.x - floor(s.x);
     s.y = s.y - floor(s.y);
     s.z = s.z - floor(s.z);
@@ -271,15 +276,15 @@ static void anterpolate(FF *ff, Triple gd, double *q, int N, double *charge,
     t.x -= em.x, t.y -= em.y, t.z -= em.z;
     Triple m = {(int)em.x, (int)em.y, (int)em.z};
     //**for (int nx = 0; nx < nu; nx++){
-    for (int nx = - nu/2; nx < nu/2; nx++){
+      for (int nx = - nu/2; nx < nu/2; nx++){
       //**double Qi = Bspline(ff, nx, t.x);
       double Qi = Bspline(ff, nx + nu/2, t.x);
       //**for (int ny = 0; ny < nu; ny++){
-      for (int ny = - nu/2; ny < nu/2; ny++){
+        for (int ny = - nu/2; ny < nu/2; ny++){
         //**double Qj = Bspline(ff, ny, t.y);
         double Qj = Bspline(ff, ny + nu/2, t.y);
         //**for (int nz = 0; nz < nu; nz++){
-        for (int nz = - nu/2; nz < nu/2; nz++){
+          for (int nz = - nu/2; nz < nu/2; nz++){
           //**double Qk = Bspline(ff, nz, t.z);
           double Qk = Bspline(ff, nz + nu/2, t.z);
           // add to q_{m+n}
@@ -327,7 +332,7 @@ static void grid2grid(Triple gd, double *el, double *ql,
 
 static void DFT(Triple gd, double complex dL[], double fL[]);
 static void invDFT(Triple gd, double fL[], double complex dL[]);
-static void DFTg2g(Triple gd, double *el, double *ql, Triple sd, double *kh){
+static void DFTg2g(Triple gd, double *el, double *ql, double *kh){
   // el = DFT of ql
   double complex *dl
     = (double complex *)malloc(gd.x*gd.y*gd.z*sizeof(double complex));
@@ -336,22 +341,29 @@ static void DFTg2g(Triple gd, double *el, double *ql, Triple sd, double *kh){
   for (int i = 0; i < gd.x; i++)
     for (int j = 0; j < gd.y; j++)
       for (int k = 0; k < gd.z; k++){
-        int i_, j_, k_;
-        i_ = i, j_ = j, k_ = k;
-        i_ = (i_ + gd.x/2)%gd.x - gd.x/2;
-        j_ = (j_ + gd.y/2)%gd.y - gd.y/2;
-        k_ = (k_ + gd.z/2)%gd.z - gd.z/2;
-        assert(i_ + sd.x/2 >= 0);
-        assert(j_ + sd.y/2 >= 0);
-        assert(k_ + sd.z/2 >= 0);
-        int n_ = ((i_ + sd.x/2)*sd.y + j_ + sd.y/2)*sd.z + k_ + sd.z/2;
-        assert( 0 <= n_ && n_ < gd.x*gd.y*gd.z);
-        dl[(i*gd.y + j)*gd.z + k]
-          *= kh[((i_ + sd.x/2)*sd.y + j_ + sd.y/2)*sd.z + k_ + sd.z/2];
+        dl[(i*gd.y + j)*gd.z + k] *= kh[(i*gd.y + j)*gd.z + k];
       }
   // el = invDFT of ql
   invDFT(gd, el, dl);
   free(dl);
+}
+
+static void FFTg2g(FF *ff, Triple gd, double *el, double *ql, double *kh){
+#ifdef NO_FFT
+  ;
+#else
+  // el = DFT of ql
+  for (int i = 0; i < gd.x*gd.y*gd.z; i++)
+    ff->fftw_in[i] = (fftw_complex)ql[i];
+  fftw_execute(ff->forward);
+  // ql = kh . el pointwise
+  for (int i = 0; i < gd.x*gd.y*gd.z; i++)
+        ff->fftw_in[i] *= (fftw_complex)kh[i];
+  // el = invDFT of ql
+  fftw_execute(ff->backward);
+  for (int i = 0; i < gd.x*gd.y*gd.z; i++)
+    el[i] = creal(ff->fftw_in[i])/(double)(gd.x*gd.y*gd.z);
+#endif
 }
 
 static void prolongate(FF *ff, Triple gd, double *el, double *elp1){
@@ -485,110 +497,4 @@ static void invDFT(Triple gd, double fL[], double complex dL[]){
               fLn += creal(cexp(ck*I)*dL[(kx*gd.y + ky)*gd.z + kz]);}
         fL[(nx*gd.y + ny)*gd.z + nz] = fLn/(gd.x*gd.y*gd.z);
       }
-}
-
-double k0_Lm1(FF *ff, double s[3], double sp[3]){  // for testing
-	// k0 + k1 + ... + k_{L-1}, see Eq.(13)
-	Triple gd = *(Triple *)ff->topGridDim;
-	Triple sd = gd;
-	int dmax = 2*ff->nLim + 1;
-	int nu = ff->orderAcc;
-	// storage for nonzero values Q(M_x x - m_x), etc
-	double *Qx = (double *)malloc(nu*sizeof(double));
-	double *Qy = (double *)malloc(nu*sizeof(double));
-	double *Qz = (double *)malloc(nu*sizeof(double));
-	// storage for nonzero values Q(M_x x' - m_x), etc
-	double *Qxp = (double *)malloc(nu*sizeof(double));
-	double *Qyp = (double *)malloc(nu*sizeof(double));
-	double *Qzp = (double *)malloc(nu*sizeof(double));
-	double k1ssp = 0.;  // return value
-	for (int l = ff->maxLevel - 1; l > 0; l--){
-		gd.x *= 2, gd.y *= 2, gd.z *= 2;
-		if (l != o.level) continue;
-		sd.x = dmax < gd.x ? dmax : gd.x;
-		sd.y = dmax < gd.y ? dmax : gd.y;
-		sd.z = dmax < gd.z ? dmax : gd.z;
-		// let  M = diag(Mx, My, Mz)
-		// and s = (m0 + t)/M and s' = (n0 + t')/M
-		// then eq (13) can be written as sum Q(t + m)kh_{m-n-k} Q(t' + n)
-		// over 0 <= m, n < nu where k = m0 - n0
-		double tx = (double)gd.x*s[0],
-			ty = (double)gd.y*s[1],
-			tz = (double)gd.z*s[2];
-		double emx = floor(tx), emy = floor(ty), emz = floor(tz);
-		tx -= emx, ty -= emy, tz -= emz;
-		// compute Qs
-		for (int n = 0; n < nu; n++){
-			Qx[n] = Bspline(ff, n, tx);
-			Qy[n] = Bspline(ff, n, ty);
-			Qz[n] = Bspline(ff, n, tz);}
-		double txp = (double)gd.x*sp[0],
-			typ = (double)gd.y*sp[1],
-			tzp = (double)gd.z*sp[2];
-		double enx = floor(txp), eny = floor(typ), enz = floor(tzp);
-		txp -= enx, typ -= eny, tzp -= enz;
-		// compute Qsp
-		for (int n = 0; n < nu; n++){
-			Qxp[n] = Bspline(ff, n, txp);
-			Qyp[n] = Bspline(ff, n, typ);
-			Qzp[n] = Bspline(ff, n, tzp);}
-		int kx = (int)(emx - enx), ky = (int)(emy - eny), kz = (int)(emz - enz);
-		double *kh = ff->khat[l];
-		for (int mx = 0; mx < nu; mx++)
-			for (int nx = 0; nx < nu; nx++){
-				int jx = ((mx - nx - kx + gd.x/2)%gd.x + gd.x)%gd.x - gd.x/2;
-				if (jx < - sd.x/2 || jx > (sd.x - 1)/2) continue;
-				double QxQxp = Qx[mx]*Qxp[nx];
-				for (int my = 0; my < nu; my++)
-					for (int ny = 0; ny < nu; ny++){
-						int jy = ((my - ny - ky + gd.y/2)%gd.y + gd.y)%gd.y - gd.y/2;
-						if (jy < - sd.y/2 || jy > (sd.y - 1)/2) continue;
-						double QxQxpQyQyp = QxQxp*Qy[my]*Qyp[ny];
-						for (int mz = 0; mz < nu; mz++)
-							for (int nz = 0; nz < nu; nz++){
-								int jz = ((mz - nz - kz + gd.z/2)%gd.z + gd.z)%gd.z - gd.z/2;
-								if (jz < - sd.z/2 || jz > (sd.z - 1)/2) continue;
-								double factor = QxQxpQyQyp*Qz[mz]*Qzp[nz];
-								int j = ((jx + sd.x/2)*sd.y + jy + sd.y/2)*sd.z + jz + sd.z/2;
-								k1ssp += factor*kh[j];}}}
-	}
-	free(Qx);free(Qy);free(Qz);free(Qxp);free(Qyp);free(Qzp);
-	if (strcmp(o.test, "4") == 0 && o.level == 0) k1ssp = 0;
-	// compute level 0 interaction
-  Matrix A = *(Matrix *)ff->A;
-  Matrix Ai = *(Matrix *)ff->Ai;
-  double a_0 = ff->aCut[0];
-  Vector as = {sqrt(Ai.xx*Ai.xx + Ai.yx*Ai.yx + Ai.zx*Ai.zx),
-               sqrt(Ai.xy*Ai.xy + Ai.yy*Ai.yy + Ai.zy*Ai.zy),
-               sqrt(Ai.xz*Ai.xz + Ai.yz*Ai.yz + Ai.zz*Ai.zz)};
-  double pxlim = ceil(a_0*as.x - 0.5);
-  double pylim = ceil(a_0*as.y - 0.5);
-  double pzlim = ceil(a_0*as.z - 0.5);
-	// convert to nearest image
-	Vector ds = {s[0] - sp[0], s[1] - sp[1], s[2] - sp[2]};
-  Vector r = prod(A, ds);
-	Vector p = {floor(ds.x + 0.5), floor(ds.y + 0.5), floor(ds.z + 0.5)};
-	Vector Ap = prod(A, p);
-	r.x -= Ap.x; r.y -= Ap.y; r.z -= Ap.z;
-	Vector r0 = r;
-	double sum = 0.;
-	for (p.x = - pxlim; p.x <= pxlim; p.x++)
-		for (p.y = - pylim; p.y <= pylim; p.y++)
-			for (p.z = - pzlim; p.z <= pzlim; p.z++){
-				Ap = prod(A, p);
-				r.x = r0.x + Ap.x; r.y = r0.y + Ap.y; r.z = r0.z + Ap.z;
-				double r2 = r.x*r.x + r.y*r.y + r.z*r.z;
-				if (r2 < a_0*a_0){
-					double s = r2/(a_0*a_0) - 1.;
-					// add V(|r|) = 1/|r| - tau(s)/a_0 to sum
-					// F on particle i = V'(|r|)r/|r|
-					// = (- 1/|r|^3 - 2 tau'(s)/a_0^3)r
-					double taus = ff->tau[nu-1];
-					for (int k = nu - 2; k >= 0; k--){
-						taus = ff->tau[k] + s*taus;}
-					sum += 1./sqrt(r2) - taus/a_0;
-				}}
-	if (strcmp(o.test, "4") != 0 || o.level == 0) 
-		k1ssp += sum;
-	return k1ssp;
 }

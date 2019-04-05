@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <time.h>
+#include <fftw3.h>
 
 struct O {
   char *test;
@@ -9,7 +10,7 @@ struct O {
   double *e; // e[0] = e^0, e[l] = e^{l:}
   bool recX; // e^{L+1} excluded
   clock_t time;
-	int level; // 0, 1 (1 to L-1), 2 (L and L+1)
+  int level; // 0, 1 (1 to L-1), 2 (L and L+1)
 }; // struct for optional output
 extern struct O o;
 
@@ -24,6 +25,9 @@ typedef struct FF {
   double tolDir;
   double tolRec;
   double kmax;
+  bool FFT;
+  fftw_complex *fftw_in;
+  fftw_plan forward, backward;
   double beta;
   double *tau;  // softener coefficients
   double *Q;  // B-spline coefficients
@@ -49,6 +53,7 @@ void FF_set_maxLevel(FF *ff, int maxLevel);
 void FF_set_topGridDim(FF *ff, int topGridDim[3]);
 void FF_set_tolDir(FF *ff, double tolDir);
 void FF_set_tolRec(FF *ff, double tolRec);
+void FF_set_FFT(FF *ff, bool FFT);
 void FF_build(FF *ff, int N, double edges[3][3]);
 double FF_get_relCutoff(FF *ff);
 int FF_get_orderAcc(FF *ff);
@@ -56,6 +61,7 @@ int FF_get_maxLevel(FF *ff);
 void FF_get_topGridDim(FF *ff, int topGridDim[3]);
 double FF_get_tolDir(FF *ff);
 double FF_get_tolRec(FF *ff);
+bool FF_get_FFT(FF *ff);
 double FF_get_errEst(FF *ff, int N, double *charge);
 void FF_rebuild(FF *ff, double edges[3][3]);
 double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
