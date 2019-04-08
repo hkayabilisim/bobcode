@@ -60,13 +60,13 @@ int main(int argc, char **argv){
   
   msm4g_tic();
   FF *ff = FF_new();
-  o.e = (double *)malloc(2*sizeof(double));
   int M[3] = {0, 0, 0};
   double energy;
   double nbar = atoi(argv[2]);
   int nu = atoi(argv[3]);
   int Mtop = atoi(argv[4]);
   int L = atoi(argv[5]);
+  o.e = (double *)malloc((L+1)*sizeof(double));
   double tol_dir = atof(argv[6]);
   double tol_rec = atof(argv[7]);
   if (nbar != 0 ) FF_set_relCutoff(ff, nbar);
