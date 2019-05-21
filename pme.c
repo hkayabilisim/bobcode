@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include <time.h>
-#include "forcefield.h"
+#include "pme.h"
 
 struct O o = {"csCl"}; // struct for optional output
 
@@ -32,8 +32,8 @@ double msm4g_toc() {
 
 
 int main(int argc, char **argv){
-  if (argc != 8) {
-    printf("Usage: %s data nbar nu M L tol_dir tol_rec\n",argv[0]);
+  if (argc != 5) {
+    printf("Usage: %s data nu tol_dir tol_rec\n",argv[0]);
     exit(1);
   }
   double edge[3][3] = {20., 0., 0., 0., 20, 0., 0., 0., 20.};
@@ -62,40 +62,27 @@ int main(int argc, char **argv){
   FF *ff = FF_new();
   int M[3] = {0, 0, 0};
   double energy;
-  double nbar = atof(argv[2]);
-  int nu = atoi(argv[3]);
-  int Mtop = atoi(argv[4]);
-  int L = atoi(argv[5]);
-  o.e = (double *)malloc((L+1)*sizeof(double));
-  double tol_dir = atof(argv[6]);
-  double tol_rec = atof(argv[7]);
-  if (nbar != 0 ) FF_set_relCutoff(ff, nbar);
+  int nu = atoi(argv[2]);
+  double tol_dir = atof(argv[3]);
+  double tol_rec = atof(argv[4]);
   if (nu != 0 ) FF_set_orderAcc(ff, nu);
-  if (L != 0) FF_set_maxLevel(ff, L);
-  if (Mtop != 0 ) {
-    M[0] = Mtop; M[1] = Mtop; M[2] = Mtop;
-    FF_set_topGridDim(ff, M);
-  }
   if (tol_dir != 0) FF_set_tolDir(ff, tol_dir);
   if (tol_rec != 0) FF_set_tolRec(ff, tol_rec);
   
   FF_build(ff, N, edge);
   energy = FF_energy(ff, N, F, r, q, NULL);
   
-  FF_get_topGridDim(ff, M);
+  FF_get_topGridDim(ff,M);
   printf("%-30s : %10.8f\n","time",msm4g_toc());
   printf("%-30s : %s\n", "data",argv[1]);
-  printf("%-30s : %d\n", "L",FF_get_maxLevel(ff));
-  printf("%-30s : %f\n", "nbar",FF_get_relCutoff(ff));
   printf("%-30s : %d\n", "nu",FF_get_orderAcc(ff));
+  printf("%-30s : %f\n", "beta",ff->beta);
+  printf("%-30s : %d\n", "Mx",M[0]);
+  printf("%-30s : %d\n", "My",M[1]);
+  printf("%-30s : %d\n", "Mz",M[2]);
   printf("%-30s : %f\n", "cutoff",FF_get_cutoff(ff));
-  printf("%-30s : %d\n", "TopLevelMx",M[0]);
-  printf("%-30s : %d\n", "TopLevelMy",M[1]);
-  printf("%-30s : %d\n", "TopLevelMz",M[2]);
   printf("%-30s : %10.3e\n", "tol_dir",FF_get_tolDir(ff));
   printf("%-30s : %10.3e\n", "tol_rec",FF_get_tolRec(ff));
-  printf("%-30s : %.16f\n", "beta",ff->beta);
-  printf("%-30s : %.16f\n", "kmax",ff->kmax);
   printf("%-30s : %.16e\n", "utotal",energy);
   
   FILE *afile = fopen(accfile, "r");

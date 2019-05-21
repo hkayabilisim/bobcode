@@ -47,6 +47,7 @@ typedef struct FF {
   double coeff1, coeff2;  // coeffs of const part of energy
 } FF;
 FF *FF_new(void);
+double FF_get_cutoff(FF *ff);
 void FF_set_relCutoff(FF *ff, double rel_cutoff);
 void FF_set_orderAcc(FF *ff, int orderAcc);
 void FF_set_maxLevel(FF *ff, int maxLevel);

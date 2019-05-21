@@ -44,6 +44,7 @@
 		4A84DF44220B678D007D29A7 /* NaClN512.acc in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF1F220B6761007D29A7 /* NaClN512.acc */; };
 		4A84DF45220B678D007D29A7 /* NaClN512.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF20220B6761007D29A7 /* NaClN512.ini */; };
 		4A84DF46220B678D007D29A7 /* NaClN512.pot in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4A84DF21220B6761007D29A7 /* NaClN512.pot */; };
+		4A868E4B225A9E2200F07EF2 /* libfftw3.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 4A868E49225A9E2200F07EF2 /* libfftw3.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -128,6 +129,8 @@
 		4A84DF1F220B6761007D29A7 /* NaClN512.acc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN512.acc; sourceTree = "<group>"; };
 		4A84DF20220B6761007D29A7 /* NaClN512.ini */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN512.ini; sourceTree = "<group>"; };
 		4A84DF21220B6761007D29A7 /* NaClN512.pot */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NaClN512.pot; sourceTree = "<group>"; };
+		4A868E49225A9E2200F07EF2 /* libfftw3.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfftw3.a; path = ../../../../../../../usr/local/lib/libfftw3.a; sourceTree = "<group>"; };
+		4A868E4A225A9E2200F07EF2 /* libfftw3.la */ = {isa = PBXFileReference; lastKnownFileType = text; name = libfftw3.la; path = ../../../../../../../usr/local/lib/libfftw3.la; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -135,6 +138,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4A868E4B225A9E2200F07EF2 /* libfftw3.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -179,6 +183,7 @@
 				4A84DF20220B6761007D29A7 /* NaClN512.ini */,
 				4A84DF21220B6761007D29A7 /* NaClN512.pot */,
 				4A84DEF7220B671A007D29A7 /* Products */,
+				4A868E48225A9E2200F07EF2 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -188,6 +193,15 @@
 				4A84DEF6220B671A007D29A7 /* bobcode */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4A868E48225A9E2200F07EF2 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4A868E49225A9E2200F07EF2 /* libfftw3.a */,
+				4A868E4A225A9E2200F07EF2 /* libfftw3.la */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -296,6 +310,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				"HEADER_SEARCH_PATHS[arch=*]" = /usr/local/include;
+				"LIBRARY_SEARCH_PATHS[arch=*]" = /usr/local/lib;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -337,6 +353,8 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				"HEADER_SEARCH_PATHS[arch=*]" = /usr/local/include;
+				"LIBRARY_SEARCH_PATHS[arch=*]" = /usr/local/lib;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = macosx;
@@ -376,6 +394,7 @@
 				4A84DEFF220B671A007D29A7 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

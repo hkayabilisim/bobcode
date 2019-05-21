@@ -81,21 +81,21 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   double asy = sqrt(Ai.yx*Ai.yx + Ai.yy*Ai.yy + Ai.yz*Ai.yz);
   double asz = sqrt(Ai.zx*Ai.zx + Ai.zy*Ai.zy + Ai.zz*Ai.zz);
   if (! ff->topGridDim[0]) {
+    double Ls = ff->maxLevel
+      ? (double)ff->maxLevel
+      : ceil(1. + log2((double)N)/6.);
+    double Ms = pow(8., (1. - Ls))*(double)N;
     double asprod = asx * asy * asz;
-    double Ms;
-    if (ff->maxLevel)
-      Ms = pow(2.,(double)ff->maxLevel)*(double)N;
-    else {
-      Ms = sqrt((double)N);
-      double asmin = fmin(asx, fmin(asy, asz));
-      double Msmin = pow(0.5*ff->relCutoff*asmin, 3)/asprod;
-      Ms = fmax(Ms, Msmin);}
+    double asmin = fmin(asx, fmin(asy, asz));
+    double Msmin = pow((double)(ff->nLim + 1)*asmin, 3)/asprod;
+    Ms = fmax(Ms, Msmin);
     double numerator = pow(Ms*asprod, 1./3.);
     ff->topGridDim[0] = (int)ceil(numerator/asx);
     ff->topGridDim[1] = (int)ceil(numerator/asy);
     ff->topGridDim[2] = (int)ceil(numerator/asz);}
   double aL = ff->relCutoff/fmax(ff->topGridDim[0]*asx,
               fmax(ff->topGridDim[1]*asy,ff->topGridDim[2]*asz));
+  printf("refl:%f asx:%f ff->topGridDim[0]:%d\n",ff->relCutoff,asx,ff->topGridDim[0]);
   if (! ff->maxLevel){
     int M = ff->topGridDim[0]*ff->topGridDim[1]*ff->topGridDim[2];
     // L = 1 + floor(lg(N/M)/3)
@@ -220,6 +220,7 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   // following is for purpose of debugging
   if (strcmp(o.test, "nobuild") == 0) return;
   // compute stencils ff->khat[l]
+  
   FF_rebuild(ff, edges);
 }
 
@@ -239,6 +240,8 @@ double FF_get_tolRec(FF*ff) {
   return ff->tolRec;}
 bool FF_get_FFT(FF *ff){
         return ff->FFT;}
+double FF_get_cutoff(FF *ff) {
+  return ff->aCut[0];}
 
 double FF_get_errEst(FF *ff, int N, double *charge){
   // calculate C_{nu-1}
@@ -354,7 +357,11 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
     sd.z = kdmax < gd.z ? kdmax : gd.z;
     double *kh = ff->khat[l];
     for (int i = 0; i < sd.x*sd.y*sd.z; i++) kh[i] = 0.;
+    //:::o.time = clock();
     kaphatA(ff, l, gd, sd, kh, as);
+    //:::clock_t end = clock();
+    //:::printf("l = %d, elapsed time = %f\n",
+    //:::      l, (double)(end - o.time)/CLOCKS_PER_SEC);
   }
 }
 
@@ -510,7 +517,7 @@ static double kappaA(FF *ff, int l, Vector s, Vector as);  // kappa_l(A s; A)
 static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
                     Vector as){
   // add kappaHat_l to kh
-  clock_t begin = clock();
+  //clock_t begin = clock();
   int kdmax = 2*ff->nLim + 1;
   int kdx = kdmax < gd.x ? kdmax : gd.x;
   int kdy = kdmax < gd.y ? kdmax : gd.y;
@@ -531,10 +538,10 @@ static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
     for (int i = 0; i < kdx*kdy*kdz; i++) o.kappa[l][i] = kap[i];
   double **op = ff->omegap[l];
   int opLim = 2*ff->nLim;
-  clock_t end = clock();
+  //clock_t end = clock();
   //-printf("elapsed time = %f, iterations = %d\n",
   //-(double)(end - o.time)/CLOCKS_PER_SEC, kdx*kdy*kdz);
-  begin = clock();
+  //begin = clock();
   //construct kappa hat element by element
   if (l == ff->maxLevel)
     for (int i1 = - sd.x/2; i1 <= (sd.x - 1)/2; i1++){
@@ -579,7 +586,7 @@ static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
               }}}
           khij[k1 + sd.z/2] = khijk;}}}
   free(kap);
-  end = clock();
+  //end = clock();
   //-printf("elapsed time = %f, iterations = %d\n",
   //-(double)(end - o.time)/CLOCKS_PER_SEC, sd.x*sd.y*sd.z);
 }
@@ -630,6 +637,7 @@ static double kappaA(FF *ff, int l, Vector s, Vector as){
         kap_s += gam2 - gam;}
   return kap_s;}
 
+//::: not used
 double kappa(FF *ff, int l, double s[3], double edges[3][3]){
   Matrix Ai = *(Matrix *)edges;
   double detA = invert(&Ai);
