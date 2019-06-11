@@ -32,8 +32,8 @@ double msm4g_toc() {
 
 
 int main(int argc, char **argv){
-  if (argc != 5) {
-    printf("Usage: %s data nu tol_dir tol_rec\n",argv[0]);
+  if (argc != 7) {
+    printf("Usage: %s data a0 nu M tol_dir tol_rec\n",argv[0]);
     exit(1);
   }
   double edge[3][3] = {20., 0., 0., 0., 20, 0., 0., 0., 20.};
@@ -62,12 +62,18 @@ int main(int argc, char **argv){
   FF *ff = FF_new();
   int M[3] = {0, 0, 0};
   double energy;
-  int nu = atoi(argv[2]);
-  double tol_dir = atof(argv[3]);
-  double tol_rec = atof(argv[4]);
+  double a0 = atof(argv[2]);
+  int nu = atoi(argv[3]);
+  int Min = atoi(argv[4]);
+  double tol_dir = atof(argv[5]);
+  double tol_rec = atof(argv[6]);
   if (nu != 0 ) FF_set_orderAcc(ff, nu);
   if (tol_dir != 0) FF_set_tolDir(ff, tol_dir);
   if (tol_rec != 0) FF_set_tolRec(ff, tol_rec);
+  if (Min != 0 ) { 
+    M[0] = M[1] = M[2] = Min; 
+    FF_set_topGridDim(ff, M); }
+  if (a0 != 0) FF_set_cutoff(ff, a0);
   
   FF_build(ff, N, edge);
   energy = FF_energy(ff, N, F, r, q, NULL);
