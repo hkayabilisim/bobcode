@@ -34,7 +34,9 @@ static void interpolate(FF *ff, int N, Vector *E, Vector *r, Triple gd,
 double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
                  double *charge, double *weight) {
   // N may change in case of grand canonical simulations
-  Vector *r = (Vector *)position;
+  double *tau = ff->tau;
+  int nu = ff->orderAcc;
+    Vector *r = (Vector *)position;
   Vector *F = (Vector *)force;
   double *wt = (double *)malloc((ff->maxLevel + 1)*sizeof(double));
   for (int l = 0; l <= ff->maxLevel; l++)
@@ -45,14 +47,24 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
   for (int i = 0; i < N; i++)
     qsum2 += charge[i], q2sum += charge[i]*charge[i];
   qsum2 *= qsum2;
+  printf("csr: %25.16f\n",0.5*qsum2*ff->coeff2);
+  printf("ushort_self:: %25.16f\n",0.5*q2sum*ff->coeff1);
   double energy = 0.5*q2sum*ff->coeff1 - 0.5*qsum2*ff->coeff2;
-  if (strcmp(o.test, "4") == 0 && o.level != -1) energy = 0.;
-  if (strcmp(o.test, "csCl") == 0) o.e_const = energy;
+  
+  
+  double s = 0 - 1.;
+  // gamma(0) = tau(0 - 1)
+  double gam = tau[nu-1];
+  for (int k = nu - 2; k >= 0; k--)
+    gam = tau[k] + s*gam;
+  double ulong_self = - 0.5*q2sum * gam/ff->aCut[0];
+  printf("ulong_self: %25.16f\n",ulong_self);
+  energy += ulong_self ;
   // particle-to-particle
   energy *= wt[0];
-  if (strcmp(o.test, "4") != 0 || o.level == 0)
-    energy += wt[0]*partcl2partcl(ff, N, F, r, charge);
-  if (strcmp(o.test, "csCl") == 0) o.e[0] = energy - o.e_const;
+	  double ushort_real = partcl2partcl(ff, N, F, r, charge) ;
+	  printf("ushort_real : %25.16f\n",ushort_real);
+    energy += wt[0]*ushort_real;
   for (int i = 0; i < N; i++)
     F[i].x *= wt[0], F[i].y *= wt[0], F[i].z *= wt[0];
   double **q = (double **)malloc((ff->maxLevel + 1)*sizeof(double *));
@@ -72,13 +84,8 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
   Triple sd = gd;
   int l = ff->maxLevel;
   for (int m = 0; m < gd.x*gd.y*gd.z; m ++) q[l][m] *= wt[l];
-  if (strcmp(o.test, "4") != 0 || o.level == ff->maxLevel){
     if (ff->FFT) FFTg2g(ff, gd, el, q[l], ff->khat[l]);
-    else DFTg2g(gd, el, q[l], ff->khat[l]);}
-  if (strcmp(o.test, "csCl") == 0){
-    o.e[l] = 0;
-    for(int m = 0; m < gd.x*gd.y*gd.z; m++) o.e[l] += q[l][m]*el[m];
-    o.e[l] *= 0.5;}
+    else DFTg2g(gd, el, q[l], ff->khat[l]);
   for (int l = ff->maxLevel-1; l >= 1; l--){
     free(q[l + 1]);
     double *elp1 = el;
@@ -93,18 +100,17 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
     Triple sd = {dmax < gd.x ? dmax : gd.x,
                  dmax < gd.y ? dmax : gd.y,
                  dmax < gd.z ? dmax : gd.z};
-    if (strcmp(o.test, "4") != 0 || o.level == l)
       grid2grid(gd, el, q[l], sd, ff->khat[l]);
-    if (strcmp(o.test, "csCl") == 0){
-      o.e[l] = 0;
-      for(int m = 0; m < gd.x*gd.y*gd.z; m++) o.e[l] += q[l][m]*el[m];
-      o.e[l] *= 0.5;}
+
     ;}
   free(wt);
   // add in grid-level energy
   double grid_en = 0.;
   for (int m = 0; m < gd.x*gd.y*gd.z; m++)
     grid_en += q[1][m]*el[m];
+  double ulong = 0.5*grid_en ;
+  printf("ulong_direct + fourier : %25.16e\n",ulong);
+  
   energy += 0.5*grid_en;
   free(q[1]);
   free(q);

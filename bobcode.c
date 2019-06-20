@@ -32,11 +32,12 @@ double msm4g_toc() {
 
 
 int main(int argc, char **argv){
-  if (argc != 8) {
-    printf("Usage: %s data nbar nu M L tol_dir tol_rec\n",argv[0]);
+  if (argc <= 9) {
+    printf("Usage: %s data nbar nu M L tol_dir tol_rec altSplitting [klim]\n",argv[0]);
+    printf("if klim < 0 then computed klim is used, else it overrides computed.\n");
     exit(1);
   }
-  double edge[3][3] = {20., 0., 0., 0., 20, 0., 0., 0., 20.};
+  double edge[3][3];
   double r[30000][3];
   double F[30000][3];
   double acc[30000][3];
@@ -51,6 +52,11 @@ int main(int argc, char **argv){
   char line[180];
   
   fgets(line, sizeof line, ifile);
+  sscanf(line,"%lf%lf%lf%lf%lf%lf%lf%lf%lf",
+     edge[0],edge[0]+1,edge[0]+2,
+     edge[1],edge[1]+1,edge[1]+2,
+     edge[2],edge[2]+1,edge[2]+2);
+  fgets(line, sizeof line, ifile);
   int N; sscanf(line,"%d", &N);
   for (int i = 0; i < N; i++) {
     fgets(line, sizeof line, ifile);
@@ -58,7 +64,6 @@ int main(int argc, char **argv){
   }
   fclose(ifile);
   
-  msm4g_tic();
   FF *ff = FF_new();
   int M[3] = {0, 0, 0};
   double energy;
@@ -69,6 +74,15 @@ int main(int argc, char **argv){
   o.e = (double *)malloc((L+1)*sizeof(double));
   double tol_dir = atof(argv[6]);
   double tol_rec = atof(argv[7]);
+  int altSplitting = atoi(argv[8]);
+  if (altSplitting != 0) FF_set_altSplitting(ff,1);
+    else
+      FF_set_altSplitting(ff,0);
+  if (argc > 9)  {
+    int klim = atoi(argv[9]);
+    ff->kLimUserSpecified = klim;
+  } else
+    ff->kLimUserSpecified = -1;
   if (nbar != 0 ) FF_set_relCutoff(ff, nbar);
   if (nu != 0 ) FF_set_orderAcc(ff, nu);
   if (L != 0) FF_set_maxLevel(ff, L);
@@ -79,16 +93,29 @@ int main(int argc, char **argv){
   if (tol_dir != 0) FF_set_tolDir(ff, tol_dir);
   if (tol_rec != 0) FF_set_tolRec(ff, tol_rec);
   
+  msm4g_tic();
   FF_build(ff, N, edge);
+  double time_build = msm4g_toc();
+  printf("%-30s : %10.8f\n","time_build",time_build);
+
+  msm4g_tic();
   energy = FF_energy(ff, N, F, r, q, NULL);
+  double time_energy = msm4g_toc();
+  printf("%-30s : %10.8f\n","time_energy",time_energy);
   
   FF_get_topGridDim(ff, M);
-  printf("%-30s : %10.8f\n","time",msm4g_toc());
+  printf("%-30s : %10.8f\n","time_total",time_build+time_energy);
   printf("%-30s : %s\n", "data",argv[1]);
   printf("%-30s : %d\n", "L",FF_get_maxLevel(ff));
   printf("%-30s : %f\n", "nbar",FF_get_relCutoff(ff));
   printf("%-30s : %d\n", "nu",FF_get_orderAcc(ff));
   printf("%-30s : %f\n", "cutoff",FF_get_cutoff(ff));
+  printf("%-30s : %5.2f %5.2f %5.2f\n", "Edge row1",
+           edge[0][0],edge[0][1],edge[0][2]);
+  printf("%-30s : %5.2f %5.2f %5.2f\n", "Edge row2",
+           edge[1][0],edge[1][1],edge[1][2]);
+  printf("%-30s : %5.2f %5.2f %5.2f\n", "Edge row3",
+           edge[2][0],edge[2][1],edge[2][2]);
   printf("%-30s : %d\n", "TopLevelMx",M[0]);
   printf("%-30s : %d\n", "TopLevelMy",M[1]);
   printf("%-30s : %d\n", "TopLevelMz",M[2]);
@@ -96,6 +123,11 @@ int main(int argc, char **argv){
   printf("%-30s : %10.3e\n", "tol_rec",FF_get_tolRec(ff));
   printf("%-30s : %.16f\n", "beta",ff->beta);
   printf("%-30s : %.16f\n", "kmax",ff->kmax);
+  printf("%-30s : %3d\n","klimx",ff->kLim[0]);
+  printf("%-30s : %3d\n","klimy",ff->kLim[1]);
+  printf("%-30s : %3d\n","klimz",ff->kLim[2]);
+  printf("%-30s : %3d\n","kLimUserSpecified",ff->kLimUserSpecified);
+  printf("%-30s : %d\n", "altSplitting",ff->altSplitting);
   printf("%-30s : %.16e\n", "utotal",energy);
   
   FILE *afile = fopen(accfile, "r");

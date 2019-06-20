@@ -57,6 +57,10 @@ void FF_set_FFT(FF *ff, bool FFT){
 #endif
   ff->FFT = FFT;}
 
+void FF_set_altSplitting(FF *ff,bool altSplitting) {
+  ff->altSplitting = altSplitting;
+}
+
 // helper functions:
 static double invert(Matrix *A);
 static void omegap(FF *ff);
@@ -188,6 +192,12 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   ff->kLim[0] = (int)(kmax/asx);
   ff->kLim[1] = (int)(kmax/asy);
   ff->kLim[2] = (int)(kmax/asz);
+  
+  if (ff->altSplitting) {
+    ff->kLim[0] = ff->topGridDim[0]/2 ;
+    ff->kLim[1] = ff->topGridDim[1]/2 ;
+    ff->kLim[2] = ff->topGridDim[2]/2 ;
+  }
 
   // build anti-blurring operator
   omegap(ff);
@@ -221,6 +231,29 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   if (strcmp(o.test, "nobuild") == 0) return;
   // compute stencils ff->khat[l]
   
+  // d^i sigma (1-) = d^i gama(1-) + i * d^(i-1) gama(1-)
+  // Implementation of A.1 from periodic.pdf (version 20170811)
+  double *dsigma = malloc(sizeof(double) * 2*nu);
+  double **dgama = (double **)malloc(sizeof(double *)*2*nu);
+  for (int i=0 ; i<2*nu; i++)
+    dgama[i] = (double *)malloc(sizeof(double)*nu);
+  
+  for (int k=nu-1;k>=0 ;k--) dgama[0][k] = 1;
+  for (int i = 1; i < 2*nu ; i++) {
+    dgama[i][nu-1] = 0;
+    for (int k = nu - 1 ; k >= 1; k--) {
+      dgama[i][k-1] = ((.5 - k)/k) * (2.*i*dgama[i-1][k] +
+                                      (i > 1 ? (i*(i-1.0)*dgama[i-2][k]) : 0.0));
+    }
+  }
+  dsigma[0] = dgama[0][0];
+  for (int i = 1 ; i <= 2*nu - 1 ; i++)
+    dsigma[i] = dgama[i][0] + i * dgama[i-1][0];
+  ff->dsigma = dsigma;
+  for (int i=0 ; i<2*nu; i++) free(dgama[i]);
+  free(dgama);
+  
+  
   FF_rebuild(ff, edges);
 }
 
@@ -242,6 +275,8 @@ bool FF_get_FFT(FF *ff){
         return ff->FFT;}
 double FF_get_cutoff(FF *ff) {
   return ff->aCut[0];}
+bool FF_get_altSplitting(FF *ff) {
+  return ff->altSplitting;}
 
 double FF_get_errEst(FF *ff, int N, double *charge){
   // calculate C_{nu-1}
@@ -276,6 +311,7 @@ double FF_get_errEst(FF *ff, int N, double *charge){
 // It initializes edges and calculate the grid2grid stencils.
 // helper functions:
 static void dALp1(FF *ff, Triple gd, Triple sd, double kh[], double detA);
+static void dAL(FF *ff, Triple gd, Triple sd, double kh[], double detA);
 static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
                     Vector as);
 static void DFT(Triple gd, double dL[], double khatL[]);
@@ -287,6 +323,8 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
   double *tau = ff->tau;
   int nu = ff->orderAcc;
   double a_0 = ff->aCut[0];
+  int L = ff->maxLevel;
+  double aL=ff->aCut[L];
   double beta = ff->beta;
   Matrix Ai = *(Matrix *)edges;
   double detA = invert(&Ai);
@@ -301,6 +339,7 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
   for (double x = -xlim; x <= xlim; x++)
     for (double y = -ylim; y <= ylim; y++)
       for (double z = -zlim; z <= zlim; z++){ // could do just z >= 0
+        if (x*x + y*y + z*z == 0) continue;
         double rx = A.xx*x + A.xy*y + A.xz*z;
         double ry = A.yx*x + A.yy*y + A.yz*z;
         double rz = A.zx*x + A.zy*y + A.zz*z;
@@ -315,7 +354,11 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
         ff->coeff1 -= gam/a_0;}
   // compute f->coeff2
   double pi = 4.*atan(1.);
-  ff->coeff2 = pi/(beta*beta*detA);  // coeff of 1/2(sum_i q_i)^2
+  if (ff->altSplitting)
+    ff->coeff2 = pi * aL * aL / ((4 * nu + 2) * detA );
+  else
+    ff->coeff2 = pi/(beta*beta*detA);  // coeff of 1/2(sum_i q_i)^2
+  
 
   // build grid-to-grid stencil for levels L, L + 1
   // ff->khat[L] = d^{L+1} + DFT of khat^L
@@ -327,28 +370,30 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
   sd.y = kdmax < gd.y ? kdmax : gd.y;
   sd.z = kdmax < gd.z ? kdmax : gd.z;
   // calculate level L kappa hat
-  int L = ff->maxLevel;
-  double *khL = (double *)calloc(sd.x*sd.y*sd.z, sizeof(double));
-  kaphatA(ff, L, gd, sd, khL, as); // add in real space contribution
-  double *khatL = (double *)calloc(gd.x*gd.y*gd.z, sizeof(double));
-  // expand kh into khatL
-  for (int mx = - sd.x/2; mx <= (sd.x - 1)/2; mx++)
-    for (int my =  - sd.y/2; my <= (sd.y - 1)/2; my++)
-      for (int mz =  - sd.z/2; mz <= (sd.z - 1)/2; mz++){
-        int nx = (mx + gd.x) % gd.x;
-        int ny = (my + gd.y) % gd.y;
-        int nz = (mz + gd.z) % gd.z;
-        khatL[(nx*gd.y + ny)*gd.z + nz]
-          = khL[((mx + sd.x/2)*sd.y + my + sd.y/2)*sd.z + mz + sd.z/2];}
-  free(khL);
   double *kh = ff->khat[L];
-  if (ff->FFT) FFT(ff, gd, kh, khatL);
-  else DFT(gd, kh, khatL);
-  free(khatL);
-  // add in d^{L+1}(A)
-  // d^{L+1}(A)_n = sum_k chi(k) c'(k) exp(2 pi i k . H_L n)
-  dALp1(ff, gd, gd, kh, detA);
-
+  if (ff->altSplitting) {
+    dAL(ff, gd, gd, kh, detA);
+  } else {
+    double *khL = (double *)calloc(sd.x*sd.y*sd.z, sizeof(double));
+    kaphatA(ff, L, gd, sd, khL, as); // add in real space contribution
+    double *khatL = (double *)calloc(gd.x*gd.y*gd.z, sizeof(double));
+    // expand kh into khatL
+    for (int mx = - sd.x/2; mx <= (sd.x - 1)/2; mx++)
+      for (int my =  - sd.y/2; my <= (sd.y - 1)/2; my++)
+        for (int mz =  - sd.z/2; mz <= (sd.z - 1)/2; mz++){
+          int nx = (mx + gd.x) % gd.x;
+          int ny = (my + gd.y) % gd.y;
+          int nz = (mz + gd.z) % gd.z;
+          khatL[(nx*gd.y + ny)*gd.z + nz]
+            = khL[((mx + sd.x/2)*sd.y + my + sd.y/2)*sd.z + mz + sd.z/2];}
+    free(khL);
+    if (ff->FFT) FFT(ff, gd, kh, khatL);
+    else DFT(gd, kh, khatL);
+    free(khatL);
+    // add in d^{L+1}(A)
+    // d^{L+1}(A)_n = sum_k chi(k) c'(k) exp(2 pi i k . H_L n)
+    dALp1(ff, gd, gd, kh, detA);
+  }
   // build grid-to-grid stencil for levels L-1, ..., 1
   for (int l = L - 1; l > 0; l--){
     gd.x *= 2; gd.y *= 2; gd.z *= 2;
@@ -376,6 +421,7 @@ void FF_delete(FF *ff) {
       free(ff->omegap[l][alpha]);}
   free(ff->khat);
   free(ff->omegap);
+  free(ff->dsigma);
   for (int alpha = 0; alpha < 3; alpha++)
     free(ff->cL[alpha]);
 #ifdef NO_FFT
@@ -448,24 +494,78 @@ static void omegap(FF *ff){
   free(Phi);
 }
 
+static void dAL(FF *ff, Triple gd, Triple sd, double kh[], double detA){
+  // add d^{L+1}(A) to kh
+  Matrix Ai = *(Matrix *)ff-> Ai;
+  int nu = ff->orderAcc;
+  double *sigmad = ff->dsigma;
+  int L = ff->maxLevel;
+  double aL = ff->aCut[L];
+  double pi = 4.*atan(1.);
+  // loop on vec k
+  // for kx = 0, 1, -1, ..., kLim.x, -kLim.x
+  int klimx, klimy, klimz;
+  if (ff->kLimUserSpecified >= 0)
+    klimx = klimy = klimz = ff->kLimUserSpecified ;
+  else
+    klimx = ff->kLim[0], klimy = ff->kLim[1], klimz = ff->kLim[2];
+  for (int kx = - klimx ; kx <= klimx; kx++){
+    int kx1 = (kx % gd.x + gd.x) % gd.x;
+    int kx0 = (kx1 + gd.x/2) % gd.x - gd.x/2;
+    double cLx = ff->cL[0][abs(kx0)];
+    for (int ky = - klimy; ky <= klimy; ky++){
+      int ky1 = (ky % gd.y + gd.y) % gd.y;
+      int ky0 = (ky1 + gd.y/2) % gd.y - gd.y/2;
+      double cLxy = cLx*ff->cL[1][abs(ky0)];
+      for (int kz = - klimz; kz <= klimz; kz++){
+        int kz1 = (kz % gd.z + gd.z) % gd.z;
+        int kz0 = (kz1 + gd.z/2) % gd.z - gd.z/2;
+        double cLxyz = cLxy*ff->cL[2][abs(kz0)];
+        double fkx = (double)kx, fky = (double)ky, fkz = (double)kz;
+        double Aikx = Ai.xx*fkx + Ai.yx*fky + Ai.zx*fkz,
+        Aiky = Ai.xy*fkx + Ai.yy*fky + Ai.zy*fkz,
+        Aikz = Ai.xz*fkx + Ai.yz*fky + Ai.zz*fkz;
+        double k2 = Aikx*Aikx + Aiky*Aiky + Aikz*Aikz;
+        double chi_cL = 0.0;
+        if (k2 != 0) {
+          double k = sqrt(k2);
+          double chisum = 0;
+          for (int j = nu/2 ; j<=nu -1 ;j++)
+            chisum += pow(-1,j) *
+              (-cos(pi*k*aL) * sigmad[2*j]   / pow(pi*k*aL,2*j+1)
+               +sin(pi*k*aL) * sigmad[2*j+1] / pow(pi*k*aL,2*j+2));
+          chisum *= aL/(k*detA) ;
+          chi_cL = chisum * cLxyz;
+        }
+        kh[(kx1*gd.y + ky1)*gd.z + kz1]
+        += chi_cL*gd.x*gd.y*gd.z;
+      }
+    }
+  }
+}
+
 static void dALp1(FF *ff, Triple gd, Triple sd, double kh[], double detA){
   // add d^{L+1}(A) to kh
   Matrix Ai = *(Matrix *)ff-> Ai;
-  Triple kLim = *(Triple *)ff->kLim;
   double pi = 4.*atan(1.);
   double pidetA = pi*fabs(detA);
   double pi2beta2 = pow(pi/ff->beta, 2);
   // loop on vec k
   // for kx = 0, 1, -1, ..., kLim.x, -kLim.x
-  for (int kx = - kLim.x ; kx <= kLim.x; kx++){
+  int klimx, klimy, klimz;
+  if (ff->kLimUserSpecified >= 0)
+    klimx = klimy = klimz = ff->kLimUserSpecified ;
+  else
+    klimx = ff->kLim[0], klimy = ff->kLim[1], klimz = ff->kLim[2];
+  for (int kx = - klimx ; kx <= klimx; kx++){
     int kx1 = (kx % gd.x + gd.x) % gd.x;
     int kx0 = (kx1 + gd.x/2) % gd.x - gd.x/2;
     double cLx = ff->cL[0][abs(kx0)];
-    for (int ky = - kLim.y; ky <= kLim.y; ky++){
+    for (int ky = - klimy; ky <= klimy; ky++){
       int ky1 = (ky % gd.y + gd.y) % gd.y;
       int ky0 = (ky1 + gd.y/2) % gd.y - gd.y/2;
       double cLxy = cLx*ff->cL[1][abs(ky0)];
-      for (int kz = - kLim.z; kz <= kLim.z; kz++){
+      for (int kz = - klimz; kz <= klimz; kz++){
         int kz1 = (kz % gd.z + gd.z) % gd.z;
         int kz0 = (kz1 + gd.z/2) % gd.z - gd.z/2;
         double cLxyz = cLxy*ff->cL[2][abs(kz0)];
