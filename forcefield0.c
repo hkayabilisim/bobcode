@@ -193,10 +193,35 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   ff->kLim[1] = (int)(kmax/asy);
   ff->kLim[2] = (int)(kmax/asz);
   
+  // d^i sigma (1-) = d^i gama(1-) + i * d^(i-1) gama(1-)
+  // Implementation of A.1 from periodic.pdf (version 20170811)
+  double *dsigma = malloc(sizeof(double) * 2*nu);
+  double **dgama = (double **)malloc(sizeof(double *)*2*nu);
+  for (int i=0 ; i<2*nu; i++)
+    dgama[i] = (double *)malloc(sizeof(double)*nu);
+  
+  for (int k=nu-1;k>=0 ;k--) dgama[0][k] = 1;
+  for (int i = 1; i < 2*nu ; i++) {
+    dgama[i][nu-1] = 0;
+    for (int k = nu - 1 ; k >= 1; k--) {
+      dgama[i][k-1] = ((.5 - k)/k) * (2.*i*dgama[i-1][k] +
+                                      (i > 1 ? (i*(i-1.0)*dgama[i-2][k]) : 0.0));
+    }
+  }
+  dsigma[0] = dgama[0][0];
+  for (int i = 1 ; i <= 2*nu - 1 ; i++)
+    dsigma[i] = dgama[i][0] + i * dgama[i-1][0];
+  ff->dsigma = dsigma;
+  for (int i=0 ; i<2*nu; i++) free(dgama[i]);
+  free(dgama);
+
   if (ff->altSplitting) {
-    ff->kLim[0] = ff->topGridDim[0]/2 ;
-    ff->kLim[1] = ff->topGridDim[1]/2 ;
-    ff->kLim[2] = ff->topGridDim[2]/2 ;
+    double hstar = pow(fabs(detA) / N, 1./3.);
+    double base = 24.0 * fabs(ff->dsigma[nu+1]) * hstar / (pi * (nu - 1) * aL * ff->tolRec);
+    double kmax = (1.0/(pi*aL)) * pow(base,1./(nu-1.)) ;
+    ff->kLim[0] = (int)(kmax/asx);
+    ff->kLim[1] = (int)(kmax/asy);
+    ff->kLim[2] = (int)(kmax/asz);
   }
 
   // build anti-blurring operator
@@ -231,28 +256,7 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   if (strcmp(o.test, "nobuild") == 0) return;
   // compute stencils ff->khat[l]
   
-  // d^i sigma (1-) = d^i gama(1-) + i * d^(i-1) gama(1-)
-  // Implementation of A.1 from periodic.pdf (version 20170811)
-  double *dsigma = malloc(sizeof(double) * 2*nu);
-  double **dgama = (double **)malloc(sizeof(double *)*2*nu);
-  for (int i=0 ; i<2*nu; i++)
-    dgama[i] = (double *)malloc(sizeof(double)*nu);
-  
-  for (int k=nu-1;k>=0 ;k--) dgama[0][k] = 1;
-  for (int i = 1; i < 2*nu ; i++) {
-    dgama[i][nu-1] = 0;
-    for (int k = nu - 1 ; k >= 1; k--) {
-      dgama[i][k-1] = ((.5 - k)/k) * (2.*i*dgama[i-1][k] +
-                                      (i > 1 ? (i*(i-1.0)*dgama[i-2][k]) : 0.0));
-    }
-  }
-  dsigma[0] = dgama[0][0];
-  for (int i = 1 ; i <= 2*nu - 1 ; i++)
-    dsigma[i] = dgama[i][0] + i * dgama[i-1][0];
-  ff->dsigma = dsigma;
-  for (int i=0 ; i<2*nu; i++) free(dgama[i]);
-  free(dgama);
-  
+ 
   
   FF_rebuild(ff, edges);
 }

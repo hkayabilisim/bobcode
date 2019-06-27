@@ -106,7 +106,7 @@ int main(int argc, char **argv){
   FF_get_topGridDim(ff, M);
   printf("%-30s : %10.8f\n","time_total",time_build+time_energy);
   printf("%-30s : %s\n", "data",argv[1]);
-  printf("%-30s : %d\n", "L",FF_get_maxLevel(ff));
+  printf("%-30s : %d\n", "NumberOfLevels",FF_get_maxLevel(ff));
   printf("%-30s : %f\n", "nbar",FF_get_relCutoff(ff));
   printf("%-30s : %d\n", "nu",FF_get_orderAcc(ff));
   printf("%-30s : %f\n", "cutoff",FF_get_cutoff(ff));
@@ -127,6 +127,9 @@ int main(int argc, char **argv){
   printf("%-30s : %3d\n","klimy",ff->kLim[1]);
   printf("%-30s : %3d\n","klimz",ff->kLim[2]);
   printf("%-30s : %3d\n","kLimUserSpecified",ff->kLimUserSpecified);
+  printf("%-30s : %3d\n","effectiveklim_x",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[0]);
+  printf("%-30s : %3d\n","effectiveklim_y",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[1]);
+  printf("%-30s : %3d\n","effectiveklim_z",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[2]);
   printf("%-30s : %d\n", "altSplitting",ff->altSplitting);
   printf("%-30s : %.16e\n", "utotal",energy);
   
