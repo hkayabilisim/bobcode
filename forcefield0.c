@@ -216,9 +216,14 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   free(dgama);
 
   if (ff->altSplitting) {
-    double hstar = pow(fabs(detA) / N, 1./3.);
-    double base = 24.0 * fabs(ff->dsigma[nu+1]) * hstar / (pi * (nu - 1) * aL * ff->tolRec);
-    double kmax = (1.0/(pi*aL)) * pow(base,1./(nu-1.)) ;
+    Matrix A =  *(Matrix *)edges;
+    double ax = sqrt(A.xx*A.xx + A.xy*A.xy + A.xz*A.xz);
+    double ay = sqrt(A.yx*A.yx + A.yy*A.yy + A.yz*A.yz);
+    double az = sqrt(A.zx*A.zx + A.zy*A.zy + A.zz*A.zz);
+    double hL = fmax(ax/ff->topGridDim[0],
+                fmax(ay/ff->topGridDim[1],az/ff->topGridDim[2]));
+    int L = ff->maxLevel ;
+    double kmax = 1.0/(hL* pow(nu * pow(2.0,L+nu+1./nu)*ff->tolRec,1./(nu-1.))) ;
     ff->kLim[0] = (int)(kmax/asx);
     ff->kLim[1] = (int)(kmax/asy);
     ff->kLim[2] = (int)(kmax/asz);
