@@ -111,8 +111,12 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   if (! ff->tolDir){
     if (ff->tolRec) ff->tolDir = ff->tolRec;
     else ff->tolDir = 0.1*pow(0.5*ff->relCutoff, -ff->orderAcc);}
-  if (! ff->tolRec)
-    ff->tolRec = ff->tolDir;
+  if (! ff->tolRec) {
+    if (ff->altSplitting)
+      ff->tolRec = 0.1;
+    else
+      ff->tolRec = ff->tolDir;
+  }
   
   // build tau(s) = tau_0 + tau_1*s + ... + tau_{ord-1} *s^{ord-1}
   ff->tau = (double *)malloc(ff->orderAcc*sizeof(double));
