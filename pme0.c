@@ -338,21 +338,25 @@ static void omegap(FF *ff){
 static void dALp1(FF *ff, Triple gd, double kh[], double detA){
   // add d^{L+1}(A) to kh
   Matrix Ai = *(Matrix *)ff-> Ai;
-  Triple kLim = *(Triple *)ff->kLim;
   double pi = 4.*atan(1.);
   double pidetA = pi*fabs(detA);
   double pi2beta2 = pow(pi/ff->beta, 2);
   // loop on vec k
   // for kx = 0, 1, -1, ..., kLim.x, -kLim.x
-  for (int kx = - kLim.x ; kx <= kLim.x; kx++){
+  int klimx, klimy, klimz;
+  if (ff->kLimUserSpecified >= 0)
+    klimx = klimy = klimz = ff->kLimUserSpecified ;
+  else
+    klimx = ff->kLim[0], klimy = ff->kLim[1], klimz = ff->kLim[2];
+  for (int kx = - klimx ; kx <= klimx; kx++){
     int kx1 = (kx % gd.x + gd.x) % gd.x;
     int kx0 = (kx1 + gd.x/2) % gd.x - gd.x/2;
     double cLx = ff->cL[0][abs(kx0)];
-    for (int ky = - kLim.y; ky <= kLim.y; ky++){
+    for (int ky = - klimy; ky <= klimy; ky++){
       int ky1 = (ky % gd.y + gd.y) % gd.y;
       int ky0 = (ky1 + gd.y/2) % gd.y - gd.y/2;
       double cLxy = cLx*ff->cL[1][abs(ky0)];
-      for (int kz = - kLim.z; kz <= kLim.z; kz++){
+      for (int kz = - klimz; kz <= klimz; kz++){
         int kz1 = (kz % gd.z + gd.z) % gd.z;
         int kz0 = (kz1 + gd.z/2) % gd.z - gd.z/2;
         double cLxyz = cLxy*ff->cL[2][abs(kz0)];

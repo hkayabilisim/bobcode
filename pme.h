@@ -25,6 +25,7 @@ typedef struct FF {
   // first ord/2 pieces of B-splines Q_ord(t)
   // piece_i(t) = q_i0 + q_i1*(t - i) + ... + q_{i,ord-1}*(t - i)^{ord-1}
   int kLim[3]; // range of wavenumbers
+  int kLimUserSpecified;
   double *cL[3]; // c_x^2, c_y^2, c_z^2:
   // coeffs for interpolating reciprocal sum
   double *khat;  // grid2grid stencil; has dimensions topGridDim
