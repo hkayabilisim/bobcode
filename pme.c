@@ -32,11 +32,11 @@ double msm4g_toc() {
 
 
 int main(int argc, char **argv){
-  if (argc != 7) {
-    printf("Usage: %s data a0 nu M tol_dir tol_rec\n",argv[0]);
+  if (argc <= 7) {
+    printf("Usage: %s data a0 nu M tol_dir tol_rec [klim]\n",argv[0]);
     exit(1);
   }
-  double edge[3][3] = {20., 0., 0., 0., 20, 0., 0., 0., 20.};
+  double edge[3][3];
   double r[30000][3];
   double F[30000][3];
   double acc[30000][3];
@@ -51,6 +51,11 @@ int main(int argc, char **argv){
   char line[180];
   
   fgets(line, sizeof line, ifile);
+  sscanf(line,"%lf%lf%lf%lf%lf%lf%lf%lf%lf",
+         edge[0],edge[0]+1,edge[0]+2,
+         edge[1],edge[1]+1,edge[1]+2,
+         edge[2],edge[2]+1,edge[2]+2);
+  fgets(line, sizeof line, ifile);
   int N; sscanf(line,"%d", &N);
   for (int i = 0; i < N; i++) {
     fgets(line, sizeof line, ifile);
@@ -58,7 +63,6 @@ int main(int argc, char **argv){
   }
   fclose(ifile);
   
-  msm4g_tic();
   FF *ff = FF_new();
   int M[3] = {0, 0, 0};
   double energy;
@@ -74,21 +78,49 @@ int main(int argc, char **argv){
     M[0] = M[1] = M[2] = Min; 
     FF_set_topGridDim(ff, M); }
   if (a0 != 0) FF_set_cutoff(ff, a0);
+  if (argc > 7)  {
+    int klim = atoi(argv[7]);
+    ff->kLimUserSpecified = klim;
+  } else
+    ff->kLimUserSpecified = -1;
   
+  msm4g_tic();
   FF_build(ff, N, edge);
+  double time_build = msm4g_toc();
+  printf("%-30s : %10.8f\n","time_build",time_build);
+  
+  msm4g_tic();
   energy = FF_energy(ff, N, F, r, q, NULL);
+  double time_energy = msm4g_toc();
+  printf("%-30s : %10.8f\n","time_energy",time_energy);
   
   FF_get_topGridDim(ff,M);
-  printf("%-30s : %10.8f\n","time",msm4g_toc());
+  printf("%-30s : %10.8f\n","time_total",time_build+time_energy);
   printf("%-30s : %s\n", "data",argv[1]);
   printf("%-30s : %d\n", "nu",FF_get_orderAcc(ff));
   printf("%-30s : %f\n", "beta",ff->beta);
-  printf("%-30s : %d\n", "Mx",M[0]);
-  printf("%-30s : %d\n", "My",M[1]);
-  printf("%-30s : %d\n", "Mz",M[2]);
+  printf("%-30s : %d\n", "TopLevelMx",M[0]);
+  printf("%-30s : %d\n", "TopLevelMy",M[0]);
+  printf("%-30s : %d\n", "TopLevelMz",M[1]);
+  printf("%-30s : %d\n", "NumberOfLevels",1);
+  printf("%-30s : %5.2f %5.2f %5.2f\n", "Edge row1",
+         edge[0][0],edge[0][1],edge[0][2]);
+  printf("%-30s : %5.2f %5.2f %5.2f\n", "Edge row2",
+         edge[1][0],edge[1][1],edge[1][2]);
+  printf("%-30s : %5.2f %5.2f %5.2f\n", "Edge row3",
+         edge[2][0],edge[2][1],edge[2][2]);
   printf("%-30s : %f\n", "cutoff",FF_get_cutoff(ff));
+  printf("%-30s : %d\n", "nbar",0); // nbar not defined
   printf("%-30s : %10.3e\n", "tol_dir",FF_get_tolDir(ff));
   printf("%-30s : %10.3e\n", "tol_rec",FF_get_tolRec(ff));
+  printf("%-30s : %.16f\n", "kmax",ff->kmax);
+  printf("%-30s : %3d\n","klimx",ff->kLim[0]);
+  printf("%-30s : %3d\n","klimy",ff->kLim[1]);
+  printf("%-30s : %3d\n","klimz",ff->kLim[2]);
+  printf("%-30s : %3d\n","kLimUserSpecified",ff->kLimUserSpecified);
+  printf("%-30s : %3d\n","effectiveklim_x",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[0]);
+  printf("%-30s : %3d\n","effectiveklim_y",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[1]);
+  printf("%-30s : %3d\n","effectiveklim_z",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[2]);
   printf("%-30s : %.16e\n", "utotal",energy);
   
   FILE *afile = fopen(accfile, "r");
