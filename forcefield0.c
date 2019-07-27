@@ -84,25 +84,53 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   double asx = sqrt(Ai.xx*Ai.xx + Ai.xy*Ai.xy + Ai.xz*Ai.xz);
   double asy = sqrt(Ai.yx*Ai.yx + Ai.yy*Ai.yy + Ai.yz*Ai.yz);
   double asz = sqrt(Ai.zx*Ai.zx + Ai.zy*Ai.zy + Ai.zz*Ai.zz);
+  double asprod = asx * asy * asz;
+  // if M is not given
   if (! ff->topGridDim[0]) {
-    double Ls = ff->maxLevel
-      ? (double)ff->maxLevel
-      : ceil(1. + log2((double)N)/6.);
-    double Ms = pow(8., (1. - Ls))*(double)N;
-    double asprod = asx * asy * asz;
-    double asmin = fmin(asx, fmin(asy, asz));
-    double Msmin = pow((double)(ff->nLim + 1)*asmin, 3)/asprod;
-    Ms = fmax(Ms, Msmin);
-    double numerator = pow(Ms*asprod, 1./3.);
-    ff->topGridDim[0] = (int)ceil(numerator/asx);
-    ff->topGridDim[1] = (int)ceil(numerator/asy);
-    ff->topGridDim[2] = (int)ceil(numerator/asz);}
+    // if L is  given
+    if ( ff->maxLevel ) {
+      double Ms = pow(8., (1. - ff->maxLevel))*(double)N;
+      double Msx = pow(Ms * asprod,1./3.)/asx ;
+      double Msy = pow(Ms * asprod,1./3.)/asy ;
+      double Msz = pow(Ms * asprod,1./3.)/asz ;
+      ff->topGridDim[0] = (int)ceil(Msx);
+      ff->topGridDim[1] = (int)ceil(Msy);
+      ff->topGridDim[2] = (int)ceil(Msz);
+      // TODO: For the program FFTW, the dimensions should contain only
+      // 2, 3, 5, and 7 as factors.
+    } else {
+      // L is not given
+      int nbar = ff->relCutoff;
+      int L = 1;
+      bool searchForM = true;
+      do {
+        double Ms = pow(8., (1. - L))*(double)N;
+        double Msx = pow(Ms * asprod,1./3.)/asx ;
+        double Msy = pow(Ms * asprod,1./3.)/asy ;
+        double Msz = pow(Ms * asprod,1./3.)/asz ;
+        int Mx = (int)ceil(Msx);
+        int My = (int)ceil(Msy);
+        int Mz = (int)ceil(Msz);
+        int prodM = Mx * My * Mz ;
+        if (prodM <= sqrt(N) ||
+            (floor(Mx/2.0) <= nbar &&
+             floor(My/2.0) <= nbar &&
+             floor(Mz/2.0) <= nbar)) {
+              ff->topGridDim[0] = Mx;
+              ff->topGridDim[1] = My;
+              ff->topGridDim[2] = Mz;
+              searchForM = false;
+            } else {
+          L++;
+            }
+      } while (searchForM);
+      ff->maxLevel = L;
+    }
+  }
   double aL = ff->relCutoff/fmax(ff->topGridDim[0]*asx,
               fmax(ff->topGridDim[1]*asy,ff->topGridDim[2]*asz));
-  printf("refl:%f asx:%f ff->topGridDim[0]:%d\n",ff->relCutoff,asx,ff->topGridDim[0]);
   if (! ff->maxLevel){
     int M = ff->topGridDim[0]*ff->topGridDim[1]*ff->topGridDim[2];
-    // L = 1 + floor(lg(N/M)/3)
     ff->maxLevel = N < 8*M ? 1 : 1 + ilogb(N/M)/3;}
   ff->aCut = (double *)malloc((ff->maxLevel + 1)*sizeof(double));
   ff->aCut[ff->maxLevel] = aL;
