@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
+#include <string.h>
 #include <time.h>
 #include "pme.h"
 
@@ -30,18 +31,55 @@ double msm4g_toc() {
   return msm4g_tictocmanager(0);
 }
 
+void usage() {
+  fprintf(stderr,"Usage: pme dataFile "
+          "[--a0 absolute_cutoff] "
+          "[--nu accuracyOrder] "
+          "[-M grid-spacing] \n"
+          "[--tol-dir direct_tolerance] "
+          "[--tol-rec reciprocal_tolerance] "
+          "[--klim number_of_vawes]\n");
+  exit(1);
+}
 
 int main(int argc, char **argv){
-  if (argc <= 7) {
-    printf("Usage: %s data a0 nu M tol_dir tol_rec [klim]\n",argv[0]);
-    exit(1);
+  if (argc == 1) {
+    usage();
   }
+  FF *ff = FF_new();
+  int M[3] = {0, 0, 0};
+  double energy;
   double edge[3][3];
-  double r[30000][3];
-  double F[30000][3];
-  double acc[30000][3];
-  double q[30000];
+  double r[70000][3];
+  double F[70000][3];
+  double acc[70000][3];
+  double q[70000];
   char inifile[100],accfile[100],potfile[100] ;
+  int kmax = -1 ;
+  for (int i = 0 ; i < argc ;i++) {
+    if (strcmp(argv[i],"--a0") == 0) {
+      double a0 = atof(argv[i+1]);
+      FF_set_cutoff(ff, a0);
+    } else if (strcmp(argv[i],"--nu") == 0) {
+      int nu = atoi(argv[i+1]);
+      FF_set_orderAcc(ff, nu);
+    } else if (strcmp(argv[i],"-M") == 0) {
+      int Mtop = atoi(argv[i+1]);
+      M[0] = Mtop; M[1] = Mtop; M[2] = Mtop;
+      FF_set_topGridDim(ff, M);
+    } else if (strcmp(argv[i],"--tol-dir") == 0) {
+      double tol_dir = atof(argv[i+1]);
+      FF_set_tolDir(ff, tol_dir);
+    } else if (strcmp(argv[i],"--tol-rec") == 0) {
+      double tol_rec = atof(argv[i+1]);
+      FF_set_tolRec(ff, tol_rec);
+    }  else if (strcmp(argv[i],"--kmax") == 0) {
+      kmax = atoi(argv[i+1]);
+    }
+  }
+  ff->kLimUserSpecified = kmax;
+  
+  
   sprintf(inifile,"%s.ini",argv[1]);
   sprintf(accfile,"%s.acc",argv[1]);
   sprintf(potfile,"%s.pot",argv[1]);
@@ -62,27 +100,6 @@ int main(int argc, char **argv){
     sscanf(line, "%lf%lf%lf%lf", &q[i], r[i], r[i]+1, r[i]+2);
   }
   fclose(ifile);
-  
-  FF *ff = FF_new();
-  int M[3] = {0, 0, 0};
-  double energy;
-  double a0 = atof(argv[2]);
-  int nu = atoi(argv[3]);
-  int Min = atoi(argv[4]);
-  double tol_dir = atof(argv[5]);
-  double tol_rec = atof(argv[6]);
-  if (nu != 0 ) FF_set_orderAcc(ff, nu);
-  if (tol_dir != 0) FF_set_tolDir(ff, tol_dir);
-  if (tol_rec != 0) FF_set_tolRec(ff, tol_rec);
-  if (Min != 0 ) { 
-    M[0] = M[1] = M[2] = Min; 
-    FF_set_topGridDim(ff, M); }
-  if (a0 != 0) FF_set_cutoff(ff, a0);
-  if (argc > 7)  {
-    int klim = atoi(argv[7]);
-    ff->kLimUserSpecified = klim;
-  } else
-    ff->kLimUserSpecified = -1;
   
   msm4g_tic();
   FF_build(ff, N, edge);
@@ -118,9 +135,12 @@ int main(int argc, char **argv){
   printf("%-30s : %3d\n","klimy",ff->kLim[1]);
   printf("%-30s : %3d\n","klimz",ff->kLim[2]);
   printf("%-30s : %3d\n","kLimUserSpecified",ff->kLimUserSpecified);
-  printf("%-30s : %3d\n","effectiveklim_x",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[0]);
-  printf("%-30s : %3d\n","effectiveklim_y",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[1]);
-  printf("%-30s : %3d\n","effectiveklim_z",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[2]);
+  printf("%-30s : %3d\n","effectiveklim_x",ff->kLimUserSpecified > -1 ?
+         ff->kLimUserSpecified : ff->kLim[0]);
+  printf("%-30s : %3d\n","effectiveklim_y",ff->kLimUserSpecified > -1 ?
+         ff->kLimUserSpecified : ff->kLim[1]);
+  printf("%-30s : %3d\n","effectiveklim_z",ff->kLimUserSpecified > -1 ?
+         ff->kLimUserSpecified : ff->kLim[2]);
   printf("%-30s : %.16e\n", "utotal",energy);
   
   FILE *afile = fopen(accfile, "r");
@@ -160,13 +180,13 @@ int main(int argc, char **argv){
     fclose(pfile);
   }
   
-  FILE *fp = fopen("bob.acc","w");
+  FILE *fp = fopen("pme.acc","w");
   fprintf(fp,"%d\n",N);
   for (int i=0;i<N;i++) fprintf(fp,"%-25.16f\n",-F[i][0]/q[i]);
   for (int i=0;i<N;i++) fprintf(fp,"%-25.16f\n",-F[i][1]/q[i]);
   for (int i=0;i<N;i++) fprintf(fp,"%-25.16f\n",-F[i][2]/q[i]);
   fclose(fp);
-  fp = fopen("bob.pot","w");
+  fp = fopen("pme.pot","w");
   fprintf(fp,"%25.16e\n",energy);
   fclose(fp);
   

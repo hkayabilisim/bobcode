@@ -57,8 +57,8 @@ void FF_set_FFT(FF *ff, bool FFT){
 #endif
   ff->FFT = FFT;}
 
-void FF_set_altSplitting(FF *ff,bool altSplitting) {
-  ff->altSplitting = altSplitting;
+void FF_set_ewaldSplitting(FF *ff,bool ewaldSplitting) {
+  ff->ewaldSplitting = ewaldSplitting;
 }
 
 // helper functions:
@@ -140,10 +140,10 @@ void FF_build(FF *ff, int N, double edges[3][3]){
     if (ff->tolRec) ff->tolDir = ff->tolRec;
     else ff->tolDir = 0.1*pow(0.5*ff->relCutoff, -ff->orderAcc);}
   if (! ff->tolRec) {
-    if (ff->altSplitting)
-      ff->tolRec = 0.1;
-    else
+    if (ff->ewaldSplitting)
       ff->tolRec = ff->tolDir;
+    else
+      ff->tolRec = 0.1;
   }
   
   // build tau(s) = tau_0 + tau_1*s + ... + tau_{ord-1} *s^{ord-1}
@@ -247,7 +247,7 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   for (int i=0 ; i<2*nu; i++) free(dgama[i]);
   free(dgama);
 
-  if (ff->altSplitting) {
+  if ( ! ff->ewaldSplitting) {
     Matrix A =  *(Matrix *)edges;
     double ax = sqrt(A.xx*A.xx + A.xy*A.xy + A.xz*A.xz);
     double ay = sqrt(A.yx*A.yx + A.yy*A.yy + A.yz*A.yz);
@@ -316,8 +316,8 @@ bool FF_get_FFT(FF *ff){
         return ff->FFT;}
 double FF_get_cutoff(FF *ff) {
   return ff->aCut[0];}
-bool FF_get_altSplitting(FF *ff) {
-  return ff->altSplitting;}
+bool FF_get_ewaldSplitting(FF *ff) {
+  return ff->ewaldSplitting;}
 
 double FF_get_errEst(FF *ff, int N, double *charge){
   // calculate C_{nu-1}
@@ -395,11 +395,10 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
         ff->coeff1 -= gam/a_0;}
   // compute f->coeff2
   double pi = 4.*atan(1.);
-  if (ff->altSplitting)
-    ff->coeff2 = pi * aL * aL / ((4 * nu + 2) * detA );
+  if (ff->ewaldSplitting)
+    ff->coeff2 = pi/(beta*beta*detA);
   else
-    ff->coeff2 = pi/(beta*beta*detA);  // coeff of 1/2(sum_i q_i)^2
-  
+    ff->coeff2 = pi * aL * aL / ((4 * nu + 2) * detA );
 
   // build grid-to-grid stencil for levels L, L + 1
   // ff->khat[L] = d^{L+1} + DFT of khat^L
@@ -412,9 +411,7 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
   sd.z = kdmax < gd.z ? kdmax : gd.z;
   // calculate level L kappa hat
   double *kh = ff->khat[L];
-  if (ff->altSplitting) {
-    dAL(ff, gd, gd, kh, detA);
-  } else {
+  if (ff->ewaldSplitting) {
     double *khL = (double *)calloc(sd.x*sd.y*sd.z, sizeof(double));
     kaphatA(ff, L, gd, sd, khL, as); // add in real space contribution
     double *khatL = (double *)calloc(gd.x*gd.y*gd.z, sizeof(double));
@@ -434,6 +431,8 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
     // add in d^{L+1}(A)
     // d^{L+1}(A)_n = sum_k chi(k) c'(k) exp(2 pi i k . H_L n)
     dALp1(ff, gd, gd, kh, detA);
+  } else{
+    dAL(ff, gd, gd, kh, detA);
   }
   // build grid-to-grid stencil for levels L-1, ..., 1
   for (int l = L - 1; l > 0; l--){
