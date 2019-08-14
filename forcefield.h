@@ -49,6 +49,7 @@ typedef struct FF {
   //khat[l], l < L, has dimensions that are the lesser of  2*nLim + 1
   //  and those of the grid at level l 
   double coeff1, coeff2;  // coeffs of const part of energy
+  double time_partcl2partcl;
 } FF;
 FF *FF_new(void);
 double FF_get_cutoff(FF *ff);
@@ -76,3 +77,7 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
   // if weights == NULL, unit weights are assumed; otherwise
   // weights should point to an array of length FF_get_maxLevel(ff) + 1
 void FF_delete(FF *ff);
+
+double msm4g_tictocmanager(int push) ;
+void msm4g_tic();
+double msm4g_toc();

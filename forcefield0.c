@@ -143,7 +143,7 @@ void FF_build(FF *ff, int N, double edges[3][3]){
     if (ff->ewaldSplitting)
       ff->tolRec = ff->tolDir;
     else
-      ff->tolRec = 0.1;
+      ff->tolRec = 0.01;
   }
   
   // build tau(s) = tau_0 + tau_1*s + ... + tau_{ord-1} *s^{ord-1}

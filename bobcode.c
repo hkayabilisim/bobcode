@@ -8,29 +8,6 @@
 
 struct O o = {"csCl"}; // struct for optional output
 
-double msm4g_tictocmanager(int push) {
-  double elapsed_seconds = 0.0;
-  static clock_t stack_data[100] ;
-  static int stack_lastindex = 0 ;
-  if (push) {
-    stack_data[stack_lastindex] = clock();
-    stack_lastindex = stack_lastindex + 1;
-  } else {
-    clock_t now = clock();
-    stack_lastindex = stack_lastindex - 1;
-    clock_t previous = stack_data[stack_lastindex];
-    elapsed_seconds = (double)(now-previous)/CLOCKS_PER_SEC;
-  }
-  return elapsed_seconds;
-}
-void msm4g_tic() {
-  msm4g_tictocmanager(1);
-}
-
-double msm4g_toc() {
-  return msm4g_tictocmanager(0);
-}
-
 void usage() {
   fprintf(stderr,"Usage: msm dataFile "
           "[--nbar relativeCutoff] "
@@ -63,7 +40,7 @@ int main(int argc, char **argv){
   int  L=-1, kmax = -1 ;
   for (int i = 0 ; i < argc ;i++) {
     if (strcmp(argv[i],"--nbar") == 0) {
-      int nbar = atof(argv[i+1]);
+      double nbar = atof(argv[i+1]);
       FF_set_relCutoff(ff, nbar);
     } else if (strcmp(argv[i],"--nu") == 0) {
       int nu = atoi(argv[i+1]);
@@ -77,7 +54,6 @@ int main(int argc, char **argv){
       FF_set_maxLevel(ff, L);
     } else if (strcmp(argv[i],"--tol-dir") == 0) {
       double tol_dir = atof(argv[i+1]);
-      printf("reading %s into %lf\n",argv[i+1],tol_dir);
       FF_set_tolDir(ff, tol_dir);
     } else if (strcmp(argv[i],"--tol-rec") == 0) {
       double tol_rec = atof(argv[i+1]);
@@ -114,19 +90,18 @@ int main(int argc, char **argv){
   fclose(ifile);
   o.e = (double *)malloc((L+1)*sizeof(double));
  
-
-  
   msm4g_tic();
   FF_build(ff, N, edge);
   double time_build = msm4g_toc();
-  printf("%-30s : %10.8f\n","time_build",time_build);
-
+  
   msm4g_tic();
   energy = FF_energy(ff, N, F, r, q, NULL);
   double time_energy = msm4g_toc();
-  printf("%-30s : %10.8f\n","time_energy",time_energy);
+  FF_get_topGridDim(ff,M);
   
-  FF_get_topGridDim(ff, M);
+  printf("%-30s : %10.8f\n","time_direct",ff->time_partcl2partcl);
+  printf("%-30s : %10.8f\n","time_build",time_build);
+  printf("%-30s : %10.8f\n","time_energy",time_energy);
   printf("%-30s : %10.8f\n","time_total",time_build+time_energy);
   printf("%-30s : %s\n", "data",argv[1]);
   printf("%-30s : %d\n", "NumberOfLevels",FF_get_maxLevel(ff));

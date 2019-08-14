@@ -8,29 +8,6 @@
 
 struct O o = {"csCl"}; // struct for optional output
 
-double msm4g_tictocmanager(int push) {
-  double elapsed_seconds = 0.0;
-  static clock_t stack_data[100] ;
-  static int stack_lastindex = 0 ;
-  if (push) {
-    stack_data[stack_lastindex] = clock();
-    stack_lastindex = stack_lastindex + 1;
-  } else {
-    clock_t now = clock();
-    stack_lastindex = stack_lastindex - 1;
-    clock_t previous = stack_data[stack_lastindex];
-    elapsed_seconds = (double)(now-previous)/CLOCKS_PER_SEC;
-  }
-  return elapsed_seconds;
-}
-void msm4g_tic() {
-  msm4g_tictocmanager(1);
-}
-
-double msm4g_toc() {
-  return msm4g_tictocmanager(0);
-}
-
 void usage() {
   fprintf(stderr,"Usage: pme dataFile "
           "[--a0 absolute_cutoff] "
@@ -104,14 +81,15 @@ int main(int argc, char **argv){
   msm4g_tic();
   FF_build(ff, N, edge);
   double time_build = msm4g_toc();
-  printf("%-30s : %10.8f\n","time_build",time_build);
   
   msm4g_tic();
   energy = FF_energy(ff, N, F, r, q, NULL);
   double time_energy = msm4g_toc();
-  printf("%-30s : %10.8f\n","time_energy",time_energy);
-  
   FF_get_topGridDim(ff,M);
+  
+  printf("%-30s : %10.8f\n","time_direct",ff->time_partcl2partcl);
+  printf("%-30s : %10.8f\n","time_build",time_build);
+  printf("%-30s : %10.8f\n","time_energy",time_energy);
   printf("%-30s : %10.8f\n","time_total",time_build+time_energy);
   printf("%-30s : %s\n", "data",argv[1]);
   printf("%-30s : %d\n", "nu",FF_get_orderAcc(ff));

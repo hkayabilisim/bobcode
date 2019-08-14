@@ -31,6 +31,30 @@ static void FFTg2g(FF *ff, Triple gd, double *el, double *ql, double *kh);
 static void DFTg2g(Triple gd, double *el, double *ql, double *kh);
 static void interpolate(FF *ff, int N, Vector *E, Vector *r, Triple gd,
                           double *el);
+
+double msm4g_tictocmanager(int push) {
+  double elapsed_seconds = 0.0;
+  static clock_t stack_data[100] ;
+  static int stack_lastindex = 0 ;
+  if (push) {
+    stack_data[stack_lastindex] = clock();
+    stack_lastindex = stack_lastindex + 1;
+  } else {
+    clock_t now = clock();
+    stack_lastindex = stack_lastindex - 1;
+    clock_t previous = stack_data[stack_lastindex];
+    elapsed_seconds = (double)(now-previous)/CLOCKS_PER_SEC;
+  }
+  return elapsed_seconds;
+}
+void msm4g_tic() {
+  msm4g_tictocmanager(1);
+}
+
+double msm4g_toc() {
+  return msm4g_tictocmanager(0);
+}
+
 double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
                  double *charge, double *weight) {
   // N may change in case of grand canonical simulations
@@ -62,9 +86,11 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
   energy += ulong_self ;
   // particle-to-particle
   energy *= wt[0];
-	  double ushort_real = partcl2partcl(ff, N, F, r, charge) ;
-	  //printf("ushort_real : %25.16f\n",ushort_real);
-    energy += wt[0]*ushort_real;
+  msm4g_tic();
+  double ushort_real = partcl2partcl(ff, N, F, r, charge) ;
+  ff->time_partcl2partcl = msm4g_toc();
+	//printf("ushort_real : %25.16f\n",ushort_real);
+  energy += wt[0]*ushort_real;
   for (int i = 0; i < N; i++)
     F[i].x *= wt[0], F[i].y *= wt[0], F[i].z *= wt[0];
   double **q = (double **)malloc((ff->maxLevel + 1)*sizeof(double *));
