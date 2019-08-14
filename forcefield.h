@@ -1,6 +1,6 @@
 #include <stdbool.h>
 #include <time.h>
-#include <fftw3.h>
+#include "fftw3.h"
 
 struct O {
   char *test;
@@ -50,6 +50,7 @@ typedef struct FF {
   //  and those of the grid at level l 
   double coeff1, coeff2;  // coeffs of const part of energy
   double time_partcl2partcl;
+  double time_grid2grid[10];
 } FF;
 FF *FF_new(void);
 double FF_get_cutoff(FF *ff);

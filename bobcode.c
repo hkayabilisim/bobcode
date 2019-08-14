@@ -100,6 +100,13 @@ int main(int argc, char **argv){
   FF_get_topGridDim(ff,M);
   
   printf("%-30s : %10.8f\n","time_direct",ff->time_partcl2partcl);
+  double time_grid2grid_total = 0;
+  for (int l = 1 ; l <= ff->maxLevel ; l++) {
+    time_grid2grid_total += ff->time_grid2grid[l];
+    printf("time_grid2grid_atlevel%d        : %10.8f\n",l,ff->time_grid2grid[l]);
+  }
+  printf("%-30s : %10.8f\n","time_grid2grid_total",time_grid2grid_total);
+
   printf("%-30s : %10.8f\n","time_build",time_build);
   printf("%-30s : %10.8f\n","time_energy",time_energy);
   printf("%-30s : %10.8f\n","time_total",time_build+time_energy);

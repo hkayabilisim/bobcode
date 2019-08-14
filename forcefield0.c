@@ -14,7 +14,7 @@
 #include <math.h>
 #include <string.h>
 #include <time.h>
-#include <fftw3.h>
+#include "fftw3.h"
 #include "forcefield.h"
 
 typedef struct Vector {double x, y, z;} Vector;

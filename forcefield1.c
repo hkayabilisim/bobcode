@@ -110,8 +110,10 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
   Triple sd = gd;
   int l = ff->maxLevel;
   for (int m = 0; m < gd.x*gd.y*gd.z; m ++) q[l][m] *= wt[l];
+  msm4g_tic();
     if (ff->FFT) FFTg2g(ff, gd, el, q[l], ff->khat[l]);
     else DFTg2g(gd, el, q[l], ff->khat[l]);
+  ff->time_grid2grid[l] = msm4g_toc();
   for (int l = ff->maxLevel-1; l >= 1; l--){
     free(q[l + 1]);
     double *elp1 = el;
@@ -126,8 +128,9 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
     Triple sd = {dmax < gd.x ? dmax : gd.x,
                  dmax < gd.y ? dmax : gd.y,
                  dmax < gd.z ? dmax : gd.z};
+    msm4g_tic();
       grid2grid(gd, el, q[l], sd, ff->khat[l]);
-
+    ff->time_grid2grid[l] = msm4g_toc();
     ;}
   free(wt);
   // add in grid-level energy
