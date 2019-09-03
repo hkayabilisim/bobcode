@@ -360,7 +360,7 @@ static void grid2grid(Triple gd, double *el, double *ql,
           for (int ny = - sd.y/2; ny < (sd.y + 1)/2; ny++){
             int ky = (my - ny + gd.y) % gd.y;
             for (int nz = - sd.z/2; nz < (sd.z + 1)/2; nz++){
-              int n = ((nx + sd.x/2)*sd.y + ny + sd.y/2)*sd.z + nz + sd.z/2;
+              int n = ((abs(nx) + sd.x/2)*sd.y + ny + sd.y/2)*sd.z + nz + sd.z/2;
               int kz = (mz - nz + gd.z) % gd.z;
               int k = (kx*gd.y + ky)*gd.z + kz;
               el[m] += kh[n]*ql[k];}}}}}

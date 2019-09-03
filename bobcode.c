@@ -16,7 +16,6 @@ void usage() {
           "[-L numberOfLevels] "
           "[--tol-dir direct_tolerance] "
           "[--tol-rec reciprocal_tolerance] \n"
-          "[--enable-ewald-splitting] "
           "[--klim number_of_vawes]\n");
   exit(1);
 }
@@ -36,7 +35,6 @@ int main(int argc, char **argv){
   double q[70000];
   char inifile[100],accfile[100],potfile[100] ;
   
-  double ewaldSplitting = false ;
   int  L=-1, kmax = -1 ;
   for (int i = 0 ; i < argc ;i++) {
     if (strcmp(argv[i],"--nbar") == 0) {
@@ -58,15 +56,11 @@ int main(int argc, char **argv){
     } else if (strcmp(argv[i],"--tol-rec") == 0) {
       double tol_rec = atof(argv[i+1]);
       FF_set_tolRec(ff, tol_rec);
-    } else if (strcmp(argv[i],"--enable-ewald-splitting") == 0) {
-      ewaldSplitting = true;
     } else if (strcmp(argv[i],"--kmax") == 0) {
       kmax = atoi(argv[i+1]);
     }
   }
   ff->kLimUserSpecified = kmax;
-  FF_set_ewaldSplitting(ff,ewaldSplitting);
-
 
   sprintf(inifile,"%s.ini",argv[1]);
   sprintf(accfile,"%s.acc",argv[1]);
@@ -135,7 +129,6 @@ int main(int argc, char **argv){
   printf("%-30s : %3d\n","effectiveklim_x",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[0]);
   printf("%-30s : %3d\n","effectiveklim_y",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[1]);
   printf("%-30s : %3d\n","effectiveklim_z",ff->kLimUserSpecified > -1 ? ff->kLimUserSpecified : ff->kLim[2]);
-  printf("%-30s : %d\n", "ewaldSplitting",ff->ewaldSplitting);
   printf("%-30s : %.16e\n", "utotal",energy);
   
   FILE *afile = fopen(accfile, "r");

@@ -26,7 +26,6 @@ typedef struct FF {
   double tolRec;
   double kmax;
   bool FFT;
-  bool ewaldSplitting;
   fftw_complex *fftw_in;
   fftw_plan forward, backward;
   double beta;
@@ -61,7 +60,6 @@ void FF_set_topGridDim(FF *ff, int topGridDim[3]);
 void FF_set_tolDir(FF *ff, double tolDir);
 void FF_set_tolRec(FF *ff, double tolRec);
 void FF_set_FFT(FF *ff, bool FFT);
-void FF_set_ewaldSplitting(FF *ff, bool ewaldSplitting);
 void FF_build(FF *ff, int N, double edges[3][3]);
 double FF_get_relCutoff(FF *ff);
 int FF_get_orderAcc(FF *ff);
@@ -70,7 +68,6 @@ void FF_get_topGridDim(FF *ff, int topGridDim[3]);
 double FF_get_tolDir(FF *ff);
 double FF_get_tolRec(FF *ff);
 bool FF_get_FFT(FF *ff);
-bool FF_get_ewaldSplitting(FF *ff);
 double FF_get_errEst(FF *ff, int N, double *charge);
 void FF_rebuild(FF *ff, double edges[3][3]);
 double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],

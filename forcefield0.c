@@ -57,13 +57,36 @@ void FF_set_FFT(FF *ff, bool FFT){
 #endif
   ff->FFT = FFT;}
 
-void FF_set_ewaldSplitting(FF *ff,bool ewaldSplitting) {
-  ff->ewaldSplitting = ewaldSplitting;
-}
-
 // helper functions:
 static double invert(Matrix *A);
 static void omegap(FF *ff);
+static int increment(int Minput){
+  int M = Minput;
+  do {
+    int factor = 2;
+    int remainder = M;
+    bool hasnonprimefactor = false;
+    do {
+      if (remainder % factor == 0) {
+        remainder = remainder / factor;
+        if (factor != 2 && factor != 3 && factor != 5 && factor != 7) {
+          hasnonprimefactor = true;
+          break;
+        }
+      } else
+        factor++;
+    } while (remainder > 1);
+    
+    if (hasnonprimefactor)
+      M++;
+    else {
+      //if (Minput != M) {
+        //fprintf(stderr,"warning M changed from %d to %d\n",Minput,M);
+      //}
+      return M;
+    }
+  } while (1);
+}
 void FF_build(FF *ff, int N, double edges[3][3]){
   // N: number of particles
   // edges: columns are vectors defining parallelpiped
@@ -127,6 +150,11 @@ void FF_build(FF *ff, int N, double edges[3][3]){
       ff->maxLevel = L;
     }
   }
+  // Increment Mx,My,Mz so that they are product of small primes
+  ff->topGridDim[0] = increment(ff->topGridDim[0]);
+  ff->topGridDim[1] = increment(ff->topGridDim[1]);
+  ff->topGridDim[2] = increment(ff->topGridDim[2]);
+
   double aL = ff->relCutoff/fmax(ff->topGridDim[0]*asx,
               fmax(ff->topGridDim[1]*asy,ff->topGridDim[2]*asz));
   if (! ff->maxLevel){
@@ -140,9 +168,6 @@ void FF_build(FF *ff, int N, double edges[3][3]){
     if (ff->tolRec) ff->tolDir = ff->tolRec;
     else ff->tolDir = 0.1*pow(0.5*ff->relCutoff, -ff->orderAcc);}
   if (! ff->tolRec) {
-    if (ff->ewaldSplitting)
-      ff->tolRec = ff->tolDir;
-    else
       ff->tolRec = 0.01;
   }
   
@@ -247,7 +272,7 @@ void FF_build(FF *ff, int N, double edges[3][3]){
   for (int i=0 ; i<2*nu; i++) free(dgama[i]);
   free(dgama);
 
-  if ( ! ff->ewaldSplitting) {
+  {
     Matrix A =  *(Matrix *)edges;
     double ax = sqrt(A.xx*A.xx + A.xy*A.xy + A.xz*A.xz);
     double ay = sqrt(A.yx*A.yx + A.yy*A.yy + A.yz*A.yz);
@@ -316,8 +341,6 @@ bool FF_get_FFT(FF *ff){
         return ff->FFT;}
 double FF_get_cutoff(FF *ff) {
   return ff->aCut[0];}
-bool FF_get_ewaldSplitting(FF *ff) {
-  return ff->ewaldSplitting;}
 
 double FF_get_errEst(FF *ff, int N, double *charge){
   // calculate C_{nu-1}
@@ -366,7 +389,6 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
   double a_0 = ff->aCut[0];
   int L = ff->maxLevel;
   double aL=ff->aCut[L];
-  double beta = ff->beta;
   Matrix Ai = *(Matrix *)edges;
   double detA = invert(&Ai);
   *(Matrix *)ff->Ai = Ai;
@@ -395,10 +417,7 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
         ff->coeff1 -= gam/a_0;}
   // compute f->coeff2
   double pi = 4.*atan(1.);
-  if (ff->ewaldSplitting)
-    ff->coeff2 = pi/(beta*beta*detA);
-  else
-    ff->coeff2 = pi * aL * aL / ((4 * nu + 2) * detA );
+  ff->coeff2 = pi * aL * aL / ((4 * nu + 2) * detA );
 
   // build grid-to-grid stencil for levels L, L + 1
   // ff->khat[L] = d^{L+1} + DFT of khat^L
@@ -411,29 +430,9 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
   sd.z = kdmax < gd.z ? kdmax : gd.z;
   // calculate level L kappa hat
   double *kh = ff->khat[L];
-  if (ff->ewaldSplitting) {
-    double *khL = (double *)calloc(sd.x*sd.y*sd.z, sizeof(double));
-    kaphatA(ff, L, gd, sd, khL, as); // add in real space contribution
-    double *khatL = (double *)calloc(gd.x*gd.y*gd.z, sizeof(double));
-    // expand kh into khatL
-    for (int mx = - sd.x/2; mx <= (sd.x - 1)/2; mx++)
-      for (int my =  - sd.y/2; my <= (sd.y - 1)/2; my++)
-        for (int mz =  - sd.z/2; mz <= (sd.z - 1)/2; mz++){
-          int nx = (mx + gd.x) % gd.x;
-          int ny = (my + gd.y) % gd.y;
-          int nz = (mz + gd.z) % gd.z;
-          khatL[(nx*gd.y + ny)*gd.z + nz]
-            = khL[((mx + sd.x/2)*sd.y + my + sd.y/2)*sd.z + mz + sd.z/2];}
-    free(khL);
-    if (ff->FFT) FFT(ff, gd, kh, khatL);
-    else DFT(gd, kh, khatL);
-    free(khatL);
-    // add in d^{L+1}(A)
-    // d^{L+1}(A)_n = sum_k chi(k) c'(k) exp(2 pi i k . H_L n)
-    dALp1(ff, gd, gd, kh, detA);
-  } else{
-    dAL(ff, gd, gd, kh, detA);
-  }
+
+  dAL(ff, gd, gd, kh, detA);
+
   // build grid-to-grid stencil for levels L-1, ..., 1
   for (int l = L - 1; l > 0; l--){
     gd.x *= 2; gd.y *= 2; gd.z *= 2;
@@ -542,6 +541,7 @@ static void dAL(FF *ff, Triple gd, Triple sd, double kh[], double detA){
   int L = ff->maxLevel;
   double aL = ff->aCut[L];
   double pi = 4.*atan(1.);
+  double kmax = ff->kmax ;
   // loop on vec k
   // for kx = 0, 1, -1, ..., kLim.x, -kLim.x
   int klimx, klimy, klimz;
@@ -562,21 +562,45 @@ static void dAL(FF *ff, Triple gd, Triple sd, double kh[], double detA){
         int kz0 = (kz1 + gd.z/2) % gd.z - gd.z/2;
         double cLxyz = cLxy*ff->cL[2][abs(kz0)];
         double fkx = (double)kx, fky = (double)ky, fkz = (double)kz;
-        double Aikx = Ai.xx*fkx + Ai.yx*fky + Ai.zx*fkz,
-        Aiky = Ai.xy*fkx + Ai.yy*fky + Ai.zy*fkz,
-        Aikz = Ai.xz*fkx + Ai.yz*fky + Ai.zz*fkz;
-        double k2 = Aikx*Aikx + Aiky*Aiky + Aikz*Aikz;
-        double chi_cL = 0.0;
-        if (k2 != 0) {
-          double k = sqrt(k2);
-          double chisum = 0;
-          for (int j = nu/2 ; j<=nu -1 ;j++)
-            chisum += pow(-1,j) *
-              (-cos(pi*k*aL) * sigmad[2*j]   / pow(pi*k*aL,2*j+1)
-               +sin(pi*k*aL) * sigmad[2*j+1] / pow(pi*k*aL,2*j+2));
-          chisum *= aL/(k*detA) ;
-          chi_cL = chisum * cLxyz;
+        double Aikx = Ai.xx*fkx + Ai.yx*fky + Ai.zx*fkz;
+        double Aiky = Ai.xy*fkx + Ai.yy*fky + Ai.zy*fkz;
+        double Aikz = Ai.xz*fkx + Ai.yz*fky + Ai.zz*fkz;
+        
+        int pxmin = (- kmax - Aikx ) / (Ai.xx * gd.x);
+        int pxmax = (  kmax - Aikx ) / (Ai.xx * gd.x);
+        int pymin = (- kmax - Aiky ) / (Ai.yy * gd.y);
+        int pymax = (  kmax - Aiky ) / (Ai.yy * gd.y);
+        int pzmin = (- kmax - Aikz ) / (Ai.zz * gd.z);
+        int pzmax = (  kmax - Aikz ) / (Ai.zz * gd.z);
+        //double k2 = Aikx*Aikx + Aiky*Aiky + Aikz*Aikz;
+        //double chi_cL = 0.0;
+        
+        double chisum = 0;
+        for (int px = pxmin ; px <= pxmax ;px++) {
+          for (int py = pymin ; py <= pymax ;py++) {
+            for (int pz = pzmin ; pz <= pzmax ;pz++) {
+              double ax = Ai.xx * (fkx + gd.x * px) +
+                          Ai.yx * (fky + gd.y * py) +
+                          Ai.zx * (fkz + gd.z * pz);
+              double ay = Ai.xy * (fkx + gd.x * px) +
+                          Ai.yy * (fky + gd.y * py) +
+                          Ai.zy * (fkz + gd.z * pz);
+              double az = Ai.xz * (fkx + gd.x * px) +
+                          Ai.yz * (fky + gd.y * py) +
+                          Ai.zz * (fkz + gd.z * pz);
+              double k2 = ax * ax + ay * ay + az * az;
+              if (k2 != 0) {
+                double k = sqrt(k2);
+                // eq:chikA
+                for (int j = nu/2 ; j<=nu -1 ;j++)
+                  chisum += aL/(k*detA) * pow(-1,j) *
+                  (-cos(pi*k*aL) * sigmad[2*j]   / pow(pi*k*aL,2*j+1)
+                   +sin(pi*k*aL) * sigmad[2*j+1] / pow(pi*k*aL,2*j+2));
+              }
+            }
+          }
         }
+        double chi_cL = chisum * cLxyz;
         kh[(kx1*gd.y + ky1)*gd.z + kz1]
         += chi_cL*gd.x*gd.y*gd.z;
       }
@@ -665,7 +689,7 @@ static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
   // construct array of kappa values
   double *kap = (double *)malloc(kdx*kdy*kdz*sizeof(double));
   Vector s;
-  for (int i = - kdx/2; i <= (kdx - 1)/2; i++){
+  for (int i = 0; i <= (kdx - 1)/2; i++){
     double *kapi = kap + (i + kdx/2)*kdy*kdz;
     s.x = (double)i/(double)gd.x;
     for (int j = - kdy/2; j <= (kdy - 1)/2; j++){
@@ -683,8 +707,7 @@ static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
   //-(double)(end - o.time)/CLOCKS_PER_SEC, kdx*kdy*kdz);
   //begin = clock();
   //construct kappa hat element by element
-  if (l == ff->maxLevel)
-    for (int i1 = - sd.x/2; i1 <= (sd.x - 1)/2; i1++){
+    for (int i1 = 0; i1 <= (sd.x - 1)/2; i1++){
       double *khi = kh + (i1 + sd.x/2)*sd.y*sd.z;
       for (int j1 = - sd.y/2; j1 <= (sd.y - 1)/2; j1++){
         double *khij = khi + (j1 + sd.y/2)*sd.z;
@@ -700,28 +723,7 @@ static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
                 int k = (k0 - k1 + (3*gd.z)/2)%gd.z - gd.z/2;
                 double opijk = opij*op[2][abs(k)];
                 double kapijk
-                  = kap[((i0 + kdx/2)*kdy + j0 + kdy/2)*kdz + k0 + kdz/2];
-                khijk += opijk*kapijk;
-              }}}
-          khij[k1 + sd.z/2] = khijk;}}}
-  else
-    for (int i1 = - sd.x/2; i1 <= (sd.x - 1)/2; i1++){
-      double *khi = kh + (i1 + sd.x/2)*sd.y*sd.z;
-      for (int j1 = - sd.y/2; j1 <= (sd.y - 1)/2; j1++){
-        double *khij = khi + (j1 + sd.y/2)*sd.z;
-        for (int k1 = - sd.z/2; k1 <= (sd.z - 1)/2; k1++){
-          double khijk = 0.;
-          for (int i0 = - kdx/2; i0 <= (kdx - 1)/2; i0++){
-            int i = (i0 - i1 + (3*gd.x)/2)%gd.x - gd.x/2;
-            double opi = op[0][abs(i)];
-            for (int j0 = - kdy/2; j0 <= (kdy - 1)/2; j0++){
-              int j = (j0 - j1 + (3*gd.y)/2)%gd.y - gd.y/2;
-              double opij = opi*op[1][abs(j)];
-              for (int k0 = - kdz/2; k0 <= (kdz - 1)/2; k0++){
-                int k = (k0 - k1 + (3*gd.z)/2)%gd.z - gd.z/2;
-                double opijk = opij*op[2][abs(k)];
-                double kapijk
-                  = kap[((i0 + kdx/2)*kdy + j0 + kdy/2)*kdz + k0 + kdz/2];
+                  = kap[((abs(i0) + kdx/2)*kdy + j0 + kdy/2)*kdz + k0 + kdz/2];
                 khijk += opijk*kapijk;
               }}}
           khij[k1 + sd.z/2] = khijk;}}}
