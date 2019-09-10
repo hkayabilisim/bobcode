@@ -50,6 +50,11 @@ typedef struct FF {
   double coeff1, coeff2;  // coeffs of const part of energy
   double time_partcl2partcl;
   double time_grid2grid[10];
+  double time_anterpolation;
+  double time_interpolation;
+  double time_restriction[10];
+  double time_prolongation[10];
+
 } FF;
 FF *FF_new(void);
 double FF_get_cutoff(FF *ff);

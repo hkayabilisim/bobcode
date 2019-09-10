@@ -93,16 +93,42 @@ int main(int argc, char **argv){
   double time_energy = msm4g_toc();
   FF_get_topGridDim(ff,M);
   
-  printf("%-30s : %10.8f\n","time_direct",ff->time_partcl2partcl);
-  double time_grid2grid_total = 0;
+  double time_manual_sum = 0;
+  printf("%-30s : %10.8f\n","time_partcl2partcl",ff->time_partcl2partcl);
+  time_manual_sum += ff->time_partcl2partcl;
+  //double time_grid2grid_total = 0;
   for (int l = 1 ; l <= ff->maxLevel ; l++) {
-    time_grid2grid_total += ff->time_grid2grid[l];
+    //time_grid2grid_total += ff->time_grid2grid[l];
     printf("time_grid2grid_atlevel%d        : %10.8f\n",l,ff->time_grid2grid[l]);
+    time_manual_sum += ff->time_grid2grid[l];
   }
-  printf("%-30s : %10.8f\n","time_grid2grid_total",time_grid2grid_total);
+  //printf("%-30s : %10.8f\n","time_grid2grid_total",time_grid2grid_total);
+  //double time_restriction_total = 0;
+  for (int l = 2 ; l <= ff->maxLevel ; l++) {
+    //time_restriction_total += ff->time_restriction[l];
+    printf("time_restrictionfrom%dto%d       : %10.8f\n",l-1,l,
+           ff->time_restriction[l]);
+    time_manual_sum += ff->time_restriction[l];
+  }
+  //printf("%-30s : %10.8f\n","time_restriction_total",time_restriction_total);
+  
+  //double time_prolongation_total = 0;
+  for (int l = ff->maxLevel-1 ; l >= 1 ; l--) {
+    //time_prolongation_total += ff->time_prolongation[l];
+    printf("time_prolongationfrom%dto%d      : %10.8f\n",l+1,l,
+           ff->time_prolongation[l]);
+    time_manual_sum += ff->time_prolongation[l];
+  }
+  //printf("%-30s : %10.8f\n","time_prolongation_total",time_prolongation_total);
+  
+  printf("%-30s : %10.8f\n","time_anterpolation",ff->time_anterpolation);
+  printf("%-30s : %10.8f\n","time_interpolation",ff->time_interpolation);
+  time_manual_sum += ff->time_anterpolation + ff->time_interpolation;
+  time_manual_sum += time_build;
 
   printf("%-30s : %10.8f\n","time_build",time_build);
-  printf("%-30s : %10.8f\n","time_energy",time_energy);
+  //printf("%-30s : %10.8f\n","time_energy",time_energy);
+  printf("%-30s : %10.8f\n","time_other",time_build+time_energy-time_manual_sum);
   printf("%-30s : %10.8f\n","time_total",time_build+time_energy);
   printf("%-30s : %s\n", "data",argv[1]);
   printf("%-30s : %d\n", "NumberOfLevels",FF_get_maxLevel(ff));

@@ -100,11 +100,16 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
     gd.x *= 2; gd.y *= 2; gd.z *= 2;}
   q[1] = (double *)calloc(gd.x*gd.y*gd.z, sizeof(double));
   // calculate q[1]
+  msm4g_tic();
   anterpolate(ff, gd, q[1], N, charge, r);
+  ff->time_anterpolation = msm4g_toc();
   for (int l = 2; l <= ff->maxLevel; l++){
     gd.x /= 2; gd.y /= 2; gd.z /= 2;
     // calculate q[l]
-    restrict_(ff, gd, q[l], q[l-1]);}
+    msm4g_tic();
+    restrict_(ff, gd, q[l], q[l-1]);
+    ff->time_restriction[l]= msm4g_toc();
+  }
   double *el = (double *)calloc(gd.x*gd.y*gd.z, sizeof(double));
   // set e^L = calK^L q^L
   Triple sd = gd;
@@ -120,7 +125,9 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
     gd.x  *= 2; gd.y *= 2;  gd.z *= 2;
     el = (double *)calloc(gd.x*gd.y*gd.z, sizeof(double));
     // add prolongated e^{l+1} to e^l
+    msm4g_tic();
     prolongate(ff, gd, el, elp1);
+    ff->time_prolongation[l] = msm4g_toc();
     free(elp1);
     for (int m = 0; m < gd.x*gd.y*gd.z; m ++) q[l][m] *= wt[l];
     // add calK^l q^l to e^1
@@ -130,8 +137,7 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
                  dmax < gd.z ? dmax : gd.z};
     msm4g_tic();
       grid2grid(gd, el, q[l], sd, ff->khat[l]);
-    ff->time_grid2grid[l] = msm4g_toc();
-    ;}
+    ff->time_grid2grid[l] = msm4g_toc();}
   free(wt);
   // add in grid-level energy
   double grid_en = 0.;
@@ -145,7 +151,9 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
   free(q);
   // initialize grid-level electric field
   Vector *E = (Vector *)malloc(N*sizeof(Vector));
+  msm4g_tic();
   interpolate(ff, N, E, r, gd, el);
+  ff->time_interpolation = msm4g_toc();
   free(el);
   for (int i = 0; i < N; i++){
     F[i].x += charge[i]*E[i].x;
@@ -350,20 +358,30 @@ static void restrict_(FF *ff, Triple gd, double *ql, double *qlm1){
 static void grid2grid(Triple gd, double *el, double *ql,
                       Triple sd, double *kh){ 
   // add level-l electric potentials to el
+  int sdx2 = sd.x/2;
+  int sdy2 = sd.y/2;
+  int sdz2 = sd.z/2;
+  int nxmax = (sd.x + 1)/2;
+  int nymax = (sd.y + 1)/2;
+  int nzmax = (sd.z + 1)/2;
   for (int mx = 0; mx < gd.x; mx++)
     for (int my = 0; my < gd.y; my++)
       for (int mz = 0; mz < gd.z; mz++){
         int m = (mx*gd.y + my)*gd.z + mz;
-        for (int nx = - sd.x/2; nx < (sd.x + 1)/2; nx++){
+        for (int nx = - sdx2; nx < nxmax; nx++){
           // let k = m - n
           int kx = (mx - nx + gd.x) % gd.x;
-          for (int ny = - sd.y/2; ny < (sd.y + 1)/2; ny++){
+          int kxoff = kx*gd.y*gd.z;
+          int nxoff = (abs(nx) + sdx2)*sd.y*sd.z;
+          for (int ny = - sdy2; ny < nymax; ny++){
             int ky = (my - ny + gd.y) % gd.y;
-            for (int nz = - sd.z/2; nz < (sd.z + 1)/2; nz++){
-              int n = ((abs(nx) + sd.x/2)*sd.y + ny + sd.y/2)*sd.z + nz + sd.z/2;
+            int kyoff = kxoff + ky*gd.z;
+            int nyoff = nxoff + (ny + sdy2)*sd.z ;
+            for (int nz = - sdz2; nz < nzmax; nz++){
+              int nzoff = nyoff + nz + sdz2;
               int kz = (mz - nz + gd.z) % gd.z;
-              int k = (kx*gd.y + ky)*gd.z + kz;
-              el[m] += kh[n]*ql[k];}}}}}
+              int kzoff = kyoff + kz;
+              el[m] += kh[nzoff]*ql[kzoff];}}}}}
 
 static void DFT(Triple gd, double complex dL[], double fL[]);
 static void invDFT(Triple gd, double fL[], double complex dL[]);
