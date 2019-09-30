@@ -16,7 +16,7 @@ void usage() {
           "[-L numberOfLevels] "
           "[--tol-dir direct_tolerance] "
           "[--tol-rec reciprocal_tolerance] \n"
-          "[--klim number_of_vawes]\n");
+          "[--kmax number_of_vawes]\n");
   exit(1);
 }
 int main(int argc, char **argv){
