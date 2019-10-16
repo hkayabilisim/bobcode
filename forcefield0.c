@@ -645,6 +645,61 @@ static void dALp1(FF *ff, Triple gd, Triple sd, double kh[], double detA){
     }
   }
 }
+double *padding_z(FF *ff,int l,double *ql,Triple gd, Triple sd){
+  msm4g_tic();
+  int gdznew = gd.z + sd.z;
+  double *qlnew = calloc(gd.x*gd.y*gdznew, sizeof(double));
+  for (int mx = 0 ; mx < gd.x ; mx++){
+    for (int my = 0 ; my < gd.y ; my++){
+      for (int mz = - sd.z/2 ; mz < 0 ; mz++){
+        int qlindex = (mx*gd.y + my)*gd.z + (mz + gd.z)%gd.z;
+        int qlnewindex = (mx*gd.y + my)*gdznew + (mz + sd.z/2);
+        qlnew[qlnewindex] = ql[qlindex];}
+      for (int mz = 0 ; mz < gd.z ; mz++){
+        int qlindex = (mx*gd.y + my)*gd.z + mz;
+        int qlnewindex = (mx*gd.y + my)*gdznew + (mz + sd.z/2);
+        qlnew[qlnewindex] = ql[qlindex];}
+      for (int mz = gd.z ; mz < gd.z + (sd.z +1)/2 ; mz++) {
+        int qlindex = (mx*gd.y + my)*gd.z + (mz - gd.z)%gd.z;
+        int qlnewindex = (mx*gd.y + my)*gdznew + (mz + sd.z/2);
+        qlnew[qlnewindex] = ql[qlindex];}}}
+  ff->time_padding[l] = msm4g_toc();
+  return qlnew;
+}
+void grid2grid(FF *ff,int l,Triple gd, double *el, double *ql,
+               Triple sd, double *kh){
+  double *qlnew = padding_z(ff,l,ql,gd,sd);
+  msm4g_tic();
+  int gdznew = gd.z + sd.z ;
+  for (int mx = 0; mx < gd.x; mx++) {
+    int mxoff = mx * gd.y * gd.z;
+    for (int my = 0; my < gd.y; my++) {
+      int myoff = mxoff + my * gd.z;
+      for (int mz = 0; mz < gd.z; mz++){
+        int mzoff = myoff + mz;
+        double elsum = 0.0;
+        int kxoff = ((mx + sd.x/2 + gd.x)%gd.x) * gd.y * gdznew ;
+        for (int nxoff = 0 ; nxoff < sd.x*sd.y*sd.z ; nxoff += sd.y * sd.z){
+          int kyoff = kxoff + ((my + sd.y/2 + gd.y)%gd.y) * gdznew ;
+          for (int nyoff = nxoff; nyoff < nxoff + sd.y*sd.z ; nyoff += sd.z) {
+            int kzoff = kyoff + mz + 2*(sd.z/2);
+            for (int nzoff = nyoff; nzoff < nyoff + sd.z; nzoff++){
+              elsum += kh[nzoff]*qlnew[kzoff];
+              kzoff--;
+            }
+            kyoff -= gdznew;
+            kyoff += (kyoff < kxoff)*gd.y*gdznew;
+          }
+          kxoff -= gd.y * gdznew;
+          kxoff += (kxoff < 0)*gd.x*gd.y*gdznew;
+        }
+        el[mzoff] += elsum ;
+      }
+    }
+  }
+  ff->time_grid2grid[l] = msm4g_toc();
+  free(qlnew);
+}
 
 static void DFT(Triple gd, double dL[], double khatL[]){
   double twopi = 8.*atan(1.);
@@ -689,7 +744,7 @@ static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
   // construct array of kappa values
   double *kap = (double *)malloc(kdx*kdy*kdz*sizeof(double));
   Vector s;
-  for (int i = 0; i <= (kdx - 1)/2; i++){
+  for (int i = - kdx/2; i <= (kdx - 1)/2; i++){
     double *kapi = kap + (i + kdx/2)*kdy*kdz;
     s.x = (double)i/(double)gd.x;
     for (int j = - kdy/2; j <= (kdy - 1)/2; j++){
@@ -707,7 +762,7 @@ static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
   //-(double)(end - o.time)/CLOCKS_PER_SEC, kdx*kdy*kdz);
   //begin = clock();
   //construct kappa hat element by element
-    for (int i1 = 0; i1 <= (sd.x - 1)/2; i1++){
+    for (int i1 = - sd.x/2; i1 <= (sd.x - 1)/2; i1++){
       double *khi = kh + (i1 + sd.x/2)*sd.y*sd.z;
       for (int j1 = - sd.y/2; j1 <= (sd.y - 1)/2; j1++){
         double *khij = khi + (j1 + sd.y/2)*sd.z;
@@ -723,7 +778,7 @@ static void kaphatA(FF *ff, int l, Triple gd, Triple sd, double kh[],
                 int k = (k0 - k1 + (3*gd.z)/2)%gd.z - gd.z/2;
                 double opijk = opij*op[2][abs(k)];
                 double kapijk
-                  = kap[((abs(i0) + kdx/2)*kdy + j0 + kdy/2)*kdz + k0 + kdz/2];
+                  = kap[((i0 + kdx/2)*kdy + j0 + kdy/2)*kdz + k0 + kdz/2];
                 khijk += opijk*kapijk;
               }}}
           khij[k1 + sd.z/2] = khijk;}}}

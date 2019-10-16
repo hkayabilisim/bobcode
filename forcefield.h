@@ -54,6 +54,7 @@ typedef struct FF {
   double time_interpolation;
   double time_restriction[10];
   double time_prolongation[10];
+  double time_padding[10];
 
 } FF;
 FF *FF_new(void);
@@ -82,5 +83,5 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
 void FF_delete(FF *ff);
 
 double msm4g_tictocmanager(int push) ;
-void msm4g_tic();
-double msm4g_toc();
+void msm4g_tic(void);
+double msm4g_toc(void);

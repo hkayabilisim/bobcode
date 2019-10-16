@@ -33,6 +33,7 @@ int main(int argc, char **argv){
   double F[70000][3];
   double acc[70000][3];
   double q[70000];
+  double mass[70000];
   char inifile[100],accfile[100],potfile[100] ;
   
   int  L=-1, kmax = -1 ;
@@ -79,7 +80,7 @@ int main(int argc, char **argv){
   int N; sscanf(line,"%d", &N);
   for (int i = 0; i < N; i++) {
     fgets(line, sizeof line, ifile);
-    sscanf(line, "%lf%lf%lf%lf", &q[i], r[i], r[i]+1, r[i]+2);
+    sscanf(line, "%lf%lf%lf%lf%lf", &q[i], r[i], r[i]+1, r[i]+2,&mass[i]);
   }
   fclose(ifile);
   o.e = (double *)malloc((L+1)*sizeof(double));
@@ -100,7 +101,9 @@ int main(int argc, char **argv){
   for (int l = 1 ; l <= ff->maxLevel ; l++) {
     //time_grid2grid_total += ff->time_grid2grid[l];
     printf("time_grid2grid_atlevel%d        : %10.8f\n",l,ff->time_grid2grid[l]);
+    printf("time_padding_atlevel%d          : %10.8f\n",l,ff->time_padding[l]);
     time_manual_sum += ff->time_grid2grid[l];
+    time_manual_sum += ff->time_padding[l];
   }
   //printf("%-30s : %10.8f\n","time_grid2grid_total",time_grid2grid_total);
   //double time_restriction_total = 0;
@@ -169,17 +172,24 @@ int main(int argc, char **argv){
     
     double max_acc = 0.;
     double max_acc_err = 0.;
+    double rms_top = 0.0;
+    double rms_bottom = 0.0;
     for (int i = 0; i < N; i++){
-      double acci
-      = sqrt(acc[i][0]*acc[i][0] + acc[i][1]*acc[i][1] +	acc[i][2]*acc[i][2]);
+      double acci2 = acc[i][0]*acc[i][0] + acc[i][1]*acc[i][1] + acc[i][2]*acc[i][2];
+      double acci = sqrt(acci2);
       max_acc = fmax(max_acc, acci);
       double errx = acc[i][0] + F[i][0]/q[i],
-      erry	= acc[i][1] + F[i][1]/q[i],
-      errz	= acc[i][2] + F[i][2]/q[i];
-      double err = sqrt(errx*errx + erry*erry + errz*errz);
+      erry = acc[i][1] + F[i][1]/q[i],
+      errz = acc[i][2] + F[i][2]/q[i];
+      double err2 = errx*errx + erry*erry + errz*errz;
+      double err = sqrt(err2);
       max_acc_err = fmax(max_acc_err, err);
+      rms_top += err2/mass[i];
+      rms_bottom += acci2/mass[i];
     }
+    double rms = sqrt(rms_top/rms_bottom);
     printf("%-30s : %25.16e\n", "forceerror",max_acc_err/max_acc);
+    printf("%-30s : %25.16e\n", "forcermserror",rms);
     fclose(afile);
   }
   

@@ -25,8 +25,8 @@ static void anterpolate(FF *ff, Triple gd, double *q, int N, double *charge,
                         Vector *r);
 static void restrict_(FF *ff, Triple gd, double *ql, double *qlm1);
 static void prolongate(FF *ff, Triple gd, double *el, double *elp1);
-static void grid2grid(Triple gd, double *el, double *ql,
-                      Triple sd, double *kh);
+void grid2grid(FF *ff,int l,Triple gd, double *el, double *ql,
+               Triple sd, double *kh);
 static void FFTg2g(FF *ff, Triple gd, double *el, double *ql, double *kh);
 static void DFTg2g(Triple gd, double *el, double *ql, double *kh);
 static void interpolate(FF *ff, int N, Vector *E, Vector *r, Triple gd,
@@ -135,9 +135,9 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
     Triple sd = {dmax < gd.x ? dmax : gd.x,
                  dmax < gd.y ? dmax : gd.y,
                  dmax < gd.z ? dmax : gd.z};
-    msm4g_tic();
-      grid2grid(gd, el, q[l], sd, ff->khat[l]);
-    ff->time_grid2grid[l] = msm4g_toc();}
+    
+    grid2grid(ff,l,gd, el, q[l], sd, ff->khat[l]);
+    }
   free(wt);
   // add in grid-level energy
   double grid_en = 0.;
@@ -355,157 +355,7 @@ static void restrict_(FF *ff, Triple gd, double *ql, double *qlm1){
               int tmpn = (tmpnx*tdy + tmpny)*tdz + tmpnz;
               ql[m] += J[nx]*J[ny]*J[nz]*qlm1[tmpn];}}}}}
 
-static void grid2grid(Triple gd, double *el, double *ql,
-                      Triple sd, double *kh){
-  int gdznew = gd.z + sd.z;
-  int gdynew = gd.y + sd.y;
-  int gdxnew = gd.x + sd.x;
-  double *qlnew = calloc(gdxnew*gdynew*gdznew, sizeof(double));
-  
-  for (int mx = - sd.x/2 ; mx < 0 ; mx++){
-    for (int my = - sd.y/2 ; my < 0 ; my++){
-      for (int mz = - sd.z/2 ; mz < 0 ; mz++){
-        int qlindex = ((mx+gd.x)%gd.x*gd.y + (my+gd.y)%gd.y)*gd.z + (mz + gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = 0 ; mz < gd.z ; mz++){
-        int qlindex = ((mx+gd.x)%gd.x*gd.y + (my+gd.y)%gd.y)*gd.z + mz;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = gd.z ; mz < gd.z + (sd.z +1)/2 ; mz++) {
-        int qlindex = ((mx+gd.x)%gd.x*gd.y + (my+gd.y)%gd.y)*gd.z + (mz - gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}}
-    //
-    for (int my = 0 ; my < gd.y ; my++){
-      for (int mz = - sd.z/2 ; mz < 0 ; mz++){
-        int qlindex = ((mx+gd.x)%gd.x*gd.y + my)*gd.z + (mz + gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = 0 ; mz < gd.z ; mz++){
-        int qlindex = ((mx+gd.x)%gd.x*gd.y + my)*gd.z + mz;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = gd.z ; mz < gd.z + (sd.z +1)/2 ; mz++) {
-        int qlindex = ((mx+gd.x)%gd.x*gd.y + my)*gd.z + (mz - gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}}
-    //
-    for (int my = gd.y ; my < gd.y + (sd.y+1)/2; my++){
-      for (int mz = - sd.z/2 ; mz < 0 ; mz++){
-        int qlindex = ((mx+gd.x)%gd.x*gd.y + (my - gd.y)%gd.y)*gd.z + (mz + gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = 0 ; mz < gd.z ; mz++){
-        int qlindex = ((mx+gd.x)%gd.x*gd.y + (my - gd.y)%gd.y)*gd.z + mz;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = gd.z ; mz < gd.z + (sd.z +1)/2 ; mz++) {
-        int qlindex = ((mx+gd.x)%gd.x*gd.y + (my - gd.y)%gd.y)*gd.z + (mz - gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}}}
-  
-  for (int mx = 0 ; mx < gd.x ; mx++){
-    for (int my = - sd.y/2 ; my < 0 ; my++){
-      for (int mz = - sd.z/2 ; mz < 0 ; mz++){
-        int qlindex = (mx*gd.y + (my+gd.y)%gd.y)*gd.z + (mz + gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = 0 ; mz < gd.z ; mz++){
-        int qlindex = (mx*gd.y + (my+gd.y)%gd.y)*gd.z + mz;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = gd.z ; mz < gd.z + (sd.z +1)/2 ; mz++) {
-        int qlindex = (mx*gd.y + (my+gd.y)%gd.y)*gd.z + (mz - gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}}
-    //
-    for (int my = 0 ; my < gd.y ; my++){
-      for (int mz = - sd.z/2 ; mz < 0 ; mz++){
-        int qlindex = (mx*gd.y + my)*gd.z + (mz + gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = 0 ; mz < gd.z ; mz++){
-        int qlindex = (mx*gd.y + my)*gd.z + mz;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = gd.z ; mz < gd.z + (sd.z +1)/2 ; mz++) {
-        int qlindex = (mx*gd.y + my)*gd.z + (mz - gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}}
-    //
-    for (int my = gd.y ; my < gd.y + (sd.y+1)/2; my++){
-      for (int mz = - sd.z/2 ; mz < 0 ; mz++){
-        int qlindex = (mx*gd.y + (my - gd.y)%gd.y)*gd.z + (mz + gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = 0 ; mz < gd.z ; mz++){
-        int qlindex = (mx*gd.y + (my - gd.y)%gd.y)*gd.z + mz;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = gd.z ; mz < gd.z + (sd.z +1)/2 ; mz++) {
-        int qlindex = (mx*gd.y + (my - gd.y)%gd.y)*gd.z + (mz - gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}}}
-  
-  for (int mx = gd.x ; mx < gd.x + (sd.x+1)/2 ; mx++){
-    for (int my = - sd.y/2 ; my < 0 ; my++){
-      for (int mz = - sd.z/2 ; mz < 0 ; mz++){
-        int qlindex = ((mx-gd.x)%gd.x*gd.y + (my+gd.y)%gd.y)*gd.z + (mz + gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = 0 ; mz < gd.z ; mz++){
-        int qlindex = ((mx-gd.x)%gd.x*gd.y + (my+gd.y)%gd.y)*gd.z + mz;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = gd.z ; mz < gd.z + (sd.z +1)/2 ; mz++) {
-        int qlindex = ((mx-gd.x)%gd.x*gd.y + (my+gd.y)%gd.y)*gd.z + (mz - gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}}
-    //
-    for (int my = 0 ; my < gd.y ; my++){
-      for (int mz = - sd.z/2 ; mz < 0 ; mz++){
-        int qlindex = ((mx-gd.x)%gd.x*gd.y + my)*gd.z + (mz + gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = 0 ; mz < gd.z ; mz++){
-        int qlindex = ((mx-gd.x)%gd.x*gd.y + my)*gd.z + mz;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = gd.z ; mz < gd.z + (sd.z +1)/2 ; mz++) {
-        int qlindex = ((mx-gd.x)%gd.x*gd.y + my)*gd.z + (mz - gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}}
-    //
-    for (int my = gd.y ; my < gd.y + (sd.y+1)/2; my++){
-      for (int mz = - sd.z/2 ; mz < 0 ; mz++){
-        int qlindex = ((mx-gd.x)%gd.x*gd.y + (my - gd.y)%gd.y)*gd.z + (mz + gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = 0 ; mz < gd.z ; mz++){
-        int qlindex = ((mx-gd.x)%gd.x*gd.y + (my - gd.y)%gd.y)*gd.z + mz;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}
-      for (int mz = gd.z ; mz < gd.z + (sd.z +1)/2 ; mz++) {
-        int qlindex = ((mx-gd.x)%gd.x*gd.y + (my - gd.y)%gd.y)*gd.z + (mz - gd.z)%gd.z;
-        int qlnewindex = ((mx+sd.x/2)*gdynew + my + sd.y/2)*gdznew + (mz + sd.z/2);
-        qlnew[qlnewindex] = ql[qlindex];}}}
-  
-  for (int mx = 0; mx < gd.x; mx++)
-    for (int my = 0; my < gd.y; my++)
-      for (int mz = 0; mz < gd.z; mz++){
-        int m = (mx*gd.y + my)*gd.z + mz;
-        for (int nx = - sd.x/2; nx < (sd.x + 1)/2; nx++){
-          int kx = mx - nx + sd.x/2;
-          for (int ny = - sd.y/2; ny < (sd.y + 1)/2; ny++){
-            int ky = my - ny + sd.y/2;
-            for (int nz = - sd.z/2; nz < (sd.z + 1)/2; nz++){
-              int n = ((abs(nx) + sd.x/2)*sd.y + ny + sd.y/2)*sd.z + nz + sd.z/2;
-              int kz = mz - nz + sd.z/2;
-              int k = (kx*gdynew + ky)*gdznew + kz;
-              el[m] += kh[n]*qlnew[k];}}}}
-  free(qlnew);
-}
+
 
 
 static void DFT(Triple gd, double complex dL[], double fL[]);
