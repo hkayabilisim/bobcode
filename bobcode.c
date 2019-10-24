@@ -16,7 +16,8 @@ void usage() {
           "[-L numberOfLevels] "
           "[--tol-dir direct_tolerance] "
           "[--tol-rec reciprocal_tolerance] \n"
-          "[--kmax number_of_vawes]\n");
+          "[--kmax number_of_vawes]\n"
+          "[--perturb]\n");
   exit(1);
 }
 int main(int argc, char **argv){
@@ -35,6 +36,10 @@ int main(int argc, char **argv){
   double q[70000];
   double mass[70000];
   char inifile[100],accfile[100],potfile[100] ;
+  double perturbx = 0.0;
+  double perturby = 0.0;
+  double perturbz = 0.0;
+  bool perturb = false;
   
   int  L=-1, kmax = -1 ;
   for (int i = 0 ; i < argc ;i++) {
@@ -59,6 +64,8 @@ int main(int argc, char **argv){
       FF_set_tolRec(ff, tol_rec);
     } else if (strcmp(argv[i],"--kmax") == 0) {
       kmax = atoi(argv[i+1]);
+    } else if (strcmp(argv[i],"--perturb") == 0) {
+      perturb = true;
     }
   }
   ff->kLimUserSpecified = kmax;
@@ -83,6 +90,20 @@ int main(int argc, char **argv){
     sscanf(line, "%lf%lf%lf%lf%lf", &q[i], r[i], r[i]+1, r[i]+2,&mass[i]);
   }
   fclose(ifile);
+  
+  if (perturb) {
+    srand(time(0));
+    rand(); // skip first random number which seems not random on Mac OS
+    perturbx = (2.0 * rand()/(double)RAND_MAX - 1.0 )* edge[0][0];
+    perturby = (2.0 * rand()/(double)RAND_MAX - 1.0 )* edge[1][1];
+    perturbz = (2.0 * rand()/(double)RAND_MAX - 1.0 )* edge[2][2];
+    for (int i = 0 ; i < N ; i++) {
+      r[i][0] += perturbx ;
+      r[i][1] += perturby ;
+      r[i][2] += perturbz ;
+    }
+  }
+  
   o.e = (double *)malloc((L+1)*sizeof(double));
  
   msm4g_tic();
@@ -135,6 +156,10 @@ int main(int argc, char **argv){
   printf("%-30s : %10.8f\n","time_total",time_build+time_energy);
   printf("%-30s : %s\n", "data",argv[1]);
   printf("%-30s : %d\n", "NumberOfLevels",FF_get_maxLevel(ff));
+  printf("%-30s : %d\n", "NumberOfParticles",N);
+  printf("%-30s : %-10.5f\n","Perturbationx",perturbx);
+  printf("%-30s : %-10.5f\n","Perturbationy",perturby);
+  printf("%-30s : %-10.5f\n","Perturbationz",perturbz);
   printf("%-30s : %f\n", "nbar",FF_get_relCutoff(ff));
   printf("%-30s : %d\n", "nu",FF_get_orderAcc(ff));
   printf("%-30s : %f\n", "cutoff",FF_get_cutoff(ff));
