@@ -1,6 +1,6 @@
 #include <stdbool.h>
 #include <time.h>
-#include <fftw3.h>
+#include "fftw3.h"
 
 struct O {
   char *test;

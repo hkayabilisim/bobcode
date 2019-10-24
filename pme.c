@@ -15,7 +15,7 @@ void usage() {
           "[-M grid-spacing] \n"
           "[--tol-dir direct_tolerance] "
           "[--tol-rec reciprocal_tolerance] "
-          "[--klim number_of_vawes]\n");
+          "[--kmax number_of_vawes]\n");
   exit(1);
 }
 
