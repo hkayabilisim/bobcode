@@ -17,7 +17,8 @@ void usage() {
           "[--tol-dir direct_tolerance] "
           "[--tol-rec reciprocal_tolerance] \n"
           "[--kmax number_of_vawes]\n"
-          "[--perturb]\n");
+          "[--perturb]\n"
+          "[--repl replx reply replz]\n");
   exit(1);
 }
 int main(int argc, char **argv){
@@ -30,11 +31,11 @@ int main(int argc, char **argv){
   int M[3] = {0, 0, 0};
   double energy;
   double edge[3][3];
-  double r[70000][3];
-  double F[70000][3];
-  double acc[70000][3];
-  double q[70000];
-  double mass[70000];
+  double (*r)[3];
+  double (*F)[3];
+  double (*acc)[3];
+  double *q;
+  double *mass;
   char inifile[100],accfile[100],potfile[100] ;
   double perturbx = 0.0;
   double perturby = 0.0;
@@ -42,6 +43,8 @@ int main(int argc, char **argv){
   bool perturb = false;
   
   int  L=-1, kmax = -1 ;
+  int replx = 1; int reply = 1; int replz = 1;
+
   for (int i = 0 ; i < argc ;i++) {
     if (strcmp(argv[i],"--nbar") == 0) {
       double nbar = atof(argv[i+1]);
@@ -66,6 +69,10 @@ int main(int argc, char **argv){
       kmax = atoi(argv[i+1]);
     } else if (strcmp(argv[i],"--perturb") == 0) {
       perturb = true;
+    } else if (strcmp(argv[i],"--repl") == 0) {
+      replx = atoi(argv[i+1]);
+      reply = atoi(argv[i+2]);
+      replz = atoi(argv[i+3]);
     }
   }
   ff->kLimUserSpecified = kmax;
@@ -85,11 +92,45 @@ int main(int argc, char **argv){
      edge[2],edge[2]+1,edge[2]+2);
   fgets(line, sizeof line, ifile);
   int N; sscanf(line,"%d", &N);
+  int Nrep = N*replx*reply*replz;
+  q = (double *)calloc(Nrep,sizeof(double));
+  r = (double (*)[3])calloc(Nrep,sizeof(double [3]));
+  F = (double (*)[3])calloc(Nrep,sizeof(double [3]));
+  acc = (double (*)[3])calloc(N,sizeof(double [3]));
+  mass = (double *)calloc(Nrep,sizeof(double));
+
   for (int i = 0; i < N; i++) {
     fgets(line, sizeof line, ifile);
     sscanf(line, "%lf%lf%lf%lf%lf", &q[i], r[i], r[i]+1, r[i]+2,&mass[i]);
   }
   fclose(ifile);
+  
+  // Replication
+  int m = N ;
+  for (int i = 0; i < replx ; i++) {
+    for (int j = 0; j < reply ; j++) {
+      for (int k = 0; k < replz ; k++) {
+        if (i==0 && j == 0 && k == 0 ) continue;
+        for (int n = 0 ; n < N ; n++) {
+          r[m][0] = r[n][0] + i * edge[0][0] + j * edge[1][0] + k * edge[2][0];
+          r[m][1] = r[n][1] + i * edge[0][1] + j * edge[1][1] + k * edge[2][1];
+          r[m][2] = r[n][2] + i * edge[0][2] + j * edge[1][2] + k * edge[2][2];
+          mass[m] = mass[n];
+          q[m] = q[n];
+          m++;
+        }
+      }
+    }
+  }
+  edge[0][0] *= replx ;
+  edge[0][1] *= replx ;
+  edge[0][2] *= replx ;
+  edge[1][0] *= reply ;
+  edge[1][1] *= reply ;
+  edge[1][2] *= reply ;
+  edge[2][0] *= replz ;
+  edge[2][1] *= replz ;
+  edge[2][2] *= replz ;
   
   if (perturb) {
     srand(time(0));
@@ -97,7 +138,7 @@ int main(int argc, char **argv){
     perturbx = (2.0 * rand()/(double)RAND_MAX - 1.0 )* edge[0][0];
     perturby = (2.0 * rand()/(double)RAND_MAX - 1.0 )* edge[1][1];
     perturbz = (2.0 * rand()/(double)RAND_MAX - 1.0 )* edge[2][2];
-    for (int i = 0 ; i < N ; i++) {
+    for (int i = 0 ; i < Nrep ; i++) {
       r[i][0] += perturbx ;
       r[i][1] += perturby ;
       r[i][2] += perturbz ;
@@ -107,11 +148,11 @@ int main(int argc, char **argv){
   o.e = (double *)malloc((L+1)*sizeof(double));
  
   msm4g_tic();
-  FF_build(ff, N, edge);
+  FF_build(ff, Nrep, edge);
   double time_build = msm4g_toc();
   
   msm4g_tic();
-  energy = FF_energy(ff, N, F, r, q, NULL);
+  energy = FF_energy(ff, Nrep, F, r, q, NULL);
   double time_energy = msm4g_toc();
   FF_get_topGridDim(ff,M);
   
@@ -156,7 +197,9 @@ int main(int argc, char **argv){
   printf("%-30s : %10.8f\n","time_total",time_build+time_energy);
   printf("%-30s : %s\n", "data",argv[1]);
   printf("%-30s : %d\n", "NumberOfLevels",FF_get_maxLevel(ff));
-  printf("%-30s : %d\n", "NumberOfParticles",N);
+  printf("%-30s : %d\n", "Nrep",Nrep);
+  printf("%-30s : %d\n", "N",N);
+  printf("%-30s : %d %d %d\n", "repl",replx,reply,replz);
   printf("%-30s : %-10.5f\n","Perturbationx",perturbx);
   printf("%-30s : %-10.5f\n","Perturbationy",perturby);
   printf("%-30s : %-10.5f\n","Perturbationz",perturbz);
@@ -194,28 +237,37 @@ int main(int argc, char **argv){
       fgets(line, sizeof line, afile); sscanf(line, "%lf", &(acc[i][1])); }
     for (int i = 0 ; i < N ; i++) {
       fgets(line, sizeof line, afile); sscanf(line, "%lf", &(acc[i][2])); }
-    
+    fclose(afile);
+
     double max_acc = 0.;
     double max_acc_err = 0.;
     double rms_top = 0.0;
     double rms_bottom = 0.0;
-    for (int i = 0; i < N; i++){
-      double acci2 = acc[i][0]*acc[i][0] + acc[i][1]*acc[i][1] + acc[i][2]*acc[i][2];
-      double acci = sqrt(acci2);
-      max_acc = fmax(max_acc, acci);
-      double errx = acc[i][0] + F[i][0]/q[i],
-      erry = acc[i][1] + F[i][1]/q[i],
-      errz = acc[i][2] + F[i][2]/q[i];
-      double err2 = errx*errx + erry*erry + errz*errz;
-      double err = sqrt(err2);
-      max_acc_err = fmax(max_acc_err, err);
-      rms_top += err2/mass[i];
-      rms_bottom += acci2/mass[i];
+    
+    int m = 0 ;
+    for (int i = 0; i < replx ; i++) {
+      for (int j = 0; j < reply ; j++) {
+        for (int k = 0; k < replz ; k++) {
+          for (int n = 0 ; n < N ; n++) {
+            double acci2 = acc[n][0]*acc[n][0] + acc[n][1]*acc[n][1] + acc[n][2]*acc[n][2];
+            double acci = sqrt(acci2);
+            max_acc = fmax(max_acc, acci);
+            double errx = acc[n][0] + F[m][0]/q[m],
+            erry = acc[n][1] + F[m][1]/q[m],
+            errz = acc[n][2] + F[m][2]/q[m];
+            double err2 = errx*errx + erry*erry + errz*errz;
+            double err = sqrt(err2);
+            max_acc_err = fmax(max_acc_err, err);
+            rms_top += err2/mass[m];
+            rms_bottom += acci2/mass[m];
+            m++;
+          }
+        }
+      }
     }
     double rms = sqrt(rms_top/rms_bottom);
     printf("%-30s : %25.16e\n", "forceerror",max_acc_err/max_acc);
     printf("%-30s : %25.16e\n", "forcermserror",rms);
-    fclose(afile);
   }
   
   
@@ -225,20 +277,27 @@ int main(int argc, char **argv){
     double energy_expected=0.0;
     fgets(line, sizeof line, pfile);
     sscanf(line,"%lf", &energy_expected);
+    energy_expected *= replx * reply * replz;
     printf("%-30s : %25.16e\n", "poterror",fabs(energy_expected-energy)/fabs(energy_expected));
     fclose(pfile);
   }
   
   FILE *fp = fopen("bob.acc","w");
   fprintf(fp,"%d\n",N);
-  for (int i=0;i<N;i++) fprintf(fp,"%-25.16f\n",-F[i][0]/q[i]);
-  for (int i=0;i<N;i++) fprintf(fp,"%-25.16f\n",-F[i][1]/q[i]);
-  for (int i=0;i<N;i++) fprintf(fp,"%-25.16f\n",-F[i][2]/q[i]);
+  for (int i=0;i<Nrep;i++) fprintf(fp,"%-25.16f\n",-F[i][0]/q[i]);
+  for (int i=0;i<Nrep;i++) fprintf(fp,"%-25.16f\n",-F[i][1]/q[i]);
+  for (int i=0;i<Nrep;i++) fprintf(fp,"%-25.16f\n",-F[i][2]/q[i]);
   fclose(fp);
   fp = fopen("bob.pot","w");
   fprintf(fp,"%25.16e\n",energy);
   fclose(fp);
   
+  
   FF_delete(ff);
+  free(r);
+  free(F);
+  free(acc);
+  free(q);
+  free(mass);
   
 }
