@@ -18,7 +18,8 @@ void usage() {
           "[--tol-rec reciprocal_tolerance] \n"
           "[--kmax number_of_vawes]\n"
           "[--perturb]\n"
-          "[--repl replx reply replz]\n");
+          "[--repl replx reply replz]\n"
+          "[--edge a11 a12 a13 a21 a22 a23 a31 a32 a33]\n");
   exit(1);
 }
 int main(int argc, char **argv){
@@ -30,7 +31,8 @@ int main(int argc, char **argv){
   FF *ff = FF_new();
   int M[3] = {0, 0, 0};
   double energy;
-  double edge[3][3];
+  double edge[3][3], edge_in[3][3];
+  bool edge_given = false;
   double (*r)[3];
   double (*F)[3];
   double (*acc)[3];
@@ -73,6 +75,18 @@ int main(int argc, char **argv){
       replx = atoi(argv[i+1]);
       reply = atoi(argv[i+2]);
       replz = atoi(argv[i+3]);
+    } else if (strcmp(argv[i],"--edge") == 0) {
+      edge_in[0][0] = atof(argv[i+1]);
+      edge_in[0][1] = atof(argv[i+2]);
+      edge_in[0][2] = atof(argv[i+3]);
+      edge_in[1][0] = atof(argv[i+4]);
+      edge_in[1][1] = atof(argv[i+5]);
+      edge_in[1][2] = atof(argv[i+6]);
+      edge_in[2][0] = atof(argv[i+7]);
+      edge_in[2][1] = atof(argv[i+8]);
+      edge_in[2][2] = atof(argv[i+9]);
+      edge_given = true;
+      
     }
   }
   ff->kLimUserSpecified = kmax;
@@ -90,7 +104,8 @@ int main(int argc, char **argv){
      edge[0],edge[0]+1,edge[0]+2,
      edge[1],edge[1]+1,edge[1]+2,
      edge[2],edge[2]+1,edge[2]+2);
-  fgets(line, sizeof line, ifile);
+  if (edge_given) memcpy(edge,edge_in, 9*sizeof(double));
+    fgets(line, sizeof line, ifile);
   int N; sscanf(line,"%d", &N);
   int Nrep = N*replx*reply*replz;
   q = (double *)calloc(Nrep,sizeof(double));
