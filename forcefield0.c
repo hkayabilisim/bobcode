@@ -678,9 +678,13 @@ void grid2grid(FF *ff,int l,Triple gd, double *el, double *ql,
       for (int mz = 0; mz < gd.z; mz++){
         int mzoff = myoff + mz;
         double elsum = 0.0;
-        int kxoff = ((mx + sd.x/2 + gd.x)%gd.x) * gd.y * gdznew ;
+        int mxw = mx + sd.x/2;
+        while (mxw >= gd.x) { mxw -= gd.x; }
+        int kxoff = mxw * gd.y * gdznew ;
         for (int nxoff = 0 ; nxoff < sd.x*sd.y*sd.z ; nxoff += sd.y * sd.z){
-          int kyoff = kxoff + ((my + sd.y/2 + gd.y)%gd.y) * gdznew ;
+          int myw = my + sd.y/2 ;
+          while (myw >= gd.y) { myw -= gd.y ;}
+          int kyoff = kxoff + myw * gdznew ;
           for (int nyoff = nxoff; nyoff < nxoff + sd.y*sd.z ; nyoff += sd.z) {
             int kzoff = kyoff + mz + 2*(sd.z/2);
             for (int nzoff = nyoff; nzoff < nyoff + sd.z; nzoff++){
