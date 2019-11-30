@@ -692,10 +692,10 @@ void grid2grid(FF *ff,int l,Triple gd, double *el, double *ql,
               kzoff--;
             }
             kyoff -= gdznew;
-            kyoff += (kyoff < kxoff)*gd.y*gdznew;
+            kyoff += kyoff < kxoff ? gd.y*gdznew : 0;
           }
           kxoff -= gd.y * gdznew;
-          kxoff += (kxoff < 0)*gd.x*gd.y*gdznew;
+          kxoff += kxoff < 0 ? gd.x*gd.y*gdznew : 0;
         }
         el[mzoff] += elsum ;
       }
