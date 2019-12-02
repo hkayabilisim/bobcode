@@ -666,9 +666,9 @@ double *padding_z(FF *ff,int l,double *ql,Triple gd, Triple sd){
   ff->time_padding[l] = msm4g_toc();
   return qlnew;
 }
-void grid2grid(FF *ff,int l,Triple gd, double *el, double *ql,
-               Triple sd, double *kh){
-  double *qlnew = padding_z(ff,l,ql,gd,sd);
+void grid2grid(FF* restrict ff,int l,Triple gd, double* restrict el, double* restrict ql,
+               Triple sd, double* restrict kh){
+  double* restrict qlnew = padding_z(ff,l,ql,gd,sd);
   msm4g_tic();
   int gdznew = gd.z + sd.z ;
   for (int mx = 0; mx < gd.x; mx++) {
