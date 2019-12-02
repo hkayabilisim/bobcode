@@ -678,24 +678,24 @@ void grid2grid(FF *ff,int l,Triple gd, double *el, double *ql,
       for (int mz = 0; mz < gd.z; mz++){
         int mzoff = myoff + mz;
         double elsum = 0.0;
-        int mxw = mx + sd.x/2;
-        while (mxw >= gd.x) { mxw -= gd.x; }
+        int mxw = mx - sd.x/2;
+        while (mxw < 0) { mxw += gd.x; }
         int kxoff = mxw * gd.y * gdznew ;
         for (int nxoff = 0 ; nxoff < sd.x*sd.y*sd.z ; nxoff += sd.y * sd.z){
-          int myw = my + sd.y/2 ;
-          while (myw >= gd.y) { myw -= gd.y ;}
+          int myw = my - sd.y/2 ;
+          while (myw < 0) { myw += gd.y ;}
           int kyoff = kxoff + myw * gdznew ;
           for (int nyoff = nxoff; nyoff < nxoff + sd.y*sd.z ; nyoff += sd.z) {
-            int kzoff = kyoff + mz + 2*(sd.z/2);
+            int kzoff = kyoff + mz ;
             for (int nzoff = nyoff; nzoff < nyoff + sd.z; nzoff++){
               elsum += kh[nzoff]*qlnew[kzoff];
-              kzoff--;
+              kzoff++;
             }
-            kyoff -= gdznew;
-            kyoff += kyoff < kxoff ? gd.y*gdznew : 0;
+            kyoff += gdznew;
+            kyoff -= kyoff >= kxoff + gd.y* gdznew ? gd.y * gdznew : 0;
           }
-          kxoff -= gd.y * gdznew;
-          kxoff += kxoff < 0 ? gd.x*gd.y*gdznew : 0;
+          kxoff += gd.y * gdznew;
+          kxoff -= kxoff >= gd.x * gd.y * gdznew ? gd.x * gd.y * gdznew : 0;
         }
         el[mzoff] += elsum ;
       }
