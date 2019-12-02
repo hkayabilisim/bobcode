@@ -25,8 +25,9 @@ static void anterpolate(FF *ff, Triple gd, double *q, int N, double *charge,
                         Vector *r);
 static void restrict_(FF *ff, Triple gd, double *ql, double *qlm1);
 static void prolongate(FF *ff, Triple gd, double *el, double *elp1);
-void grid2grid(FF *ff,int l,Triple gd, double *el, double *ql,
-               Triple sd, double *kh);
+void grid2grid(FF* restrict ff,const int l,const Triple gd,
+               double* restrict el, const double* restrict ql,
+               const Triple sd, const double* restrict kh);
 static void FFTg2g(FF *ff, Triple gd, double *el, double *ql, double *kh);
 static void DFTg2g(Triple gd, double *el, double *ql, double *kh);
 static void interpolate(FF *ff, int N, Vector *E, Vector *r, Triple gd,
