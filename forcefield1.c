@@ -161,6 +161,7 @@ double FF_energy(FF *ff, int N, double (*force)[3], double (*position)[3],
     F[i].y += charge[i]*E[i].y;
     F[i].z += charge[i]*E[i].z;}
   free(E);
+  ff->errEst = FF_get_errEst(ff, N, charge);
   return energy;
 }
 

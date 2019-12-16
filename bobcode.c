@@ -258,6 +258,7 @@ int main(int argc, char **argv){
     double max_acc_err = 0.;
     double rms_top = 0.0;
     double rms_bottom = 0.0;
+    double ferror = 0.0;
     
     int m = 0 ;
     for (int i = 0; i < replx ; i++) {
@@ -271,6 +272,7 @@ int main(int argc, char **argv){
             erry = acc[n][1] + F[m][1]/q[m],
             errz = acc[n][2] + F[m][2]/q[m];
             double err2 = errx*errx + erry*erry + errz*errz;
+            ferror += err2 * q[m]*q[m];
             double err = sqrt(err2);
             max_acc_err = fmax(max_acc_err, err);
             rms_top += err2/mass[m];
@@ -280,7 +282,10 @@ int main(int argc, char **argv){
         }
       }
     }
+    ferror = sqrt(ferror/(double)N);
     double rms = sqrt(rms_top/rms_bottom);
+    printf("%-30s : %25.16e\n", "ferror",ferror);
+    printf("%-30s : %25.16e\n", "ferrorest",ff->errEst);
     printf("%-30s : %25.16e\n", "forceerror",max_acc_err/max_acc);
     printf("%-30s : %25.16e\n", "forcermserror",rms);
   }

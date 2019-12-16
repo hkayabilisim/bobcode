@@ -18,7 +18,9 @@ extern struct O o;
 typedef struct FF {
   int N;
   double A[3][3], Ai[3][3];  // A inverse transpose
+  double detA;
   double relCutoff;
+  double errEst;
   int orderAcc;
   int maxLevel;
   int topGridDim[3];

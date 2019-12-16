@@ -345,29 +345,43 @@ double FF_get_cutoff(FF *ff) {
 double FF_get_errEst(FF *ff, int N, double *charge){
   // calculate C_{nu-1}
   int nu = ff->orderAcc;
+  int L = ff->maxLevel;
   if (nu > 10){
     printf("No error estimate available for order %d.\n", nu);
     return nan("");}
   int index = (nu - 4)/2;
-  double M[4] = {9., 825., 130095., 34096545.};
-  double cbarp[4] = {1./6., 1./30., 1./140., 1./630.};
-  double k[4] = {0.39189561, 0.150829428, 0.049632967, 0.013520855};
-  double C = 4./3.*M[index]*cbarp[index]*k[index];
+  double Zm[4] = {81.,9675.,1986705.,651100275.};
+  double Zp[4] = {24.,720.,40320.,3628800.};
+  double theta[4] = {1,1,1,1};
   // calculate hmin
-  Matrix Ai = *(Matrix *)ff->A;
-  double detA = invert(&Ai);
+  Matrix Ai = *(Matrix *)ff->Ai;
+  Matrix A = *(Matrix *)ff->A;
+  double detA = ff->detA;
   double asx = sqrt(Ai.xx*Ai.xx + Ai.xy*Ai.xy + Ai.xz*Ai.xz);
   double asy = sqrt(Ai.yx*Ai.yx + Ai.yy*Ai.yy + Ai.yz*Ai.yz);
   double asz = sqrt(Ai.zx*Ai.zx + Ai.zy*Ai.zy + Ai.zz*Ai.zz);
+  double ax = sqrt(A.xx*A.xx + A.xy*A.xy + A.xz*A.xz);
+  double ay = sqrt(A.yx*A.yx + A.yy*A.yy + A.yz*A.yz);
+  double az = sqrt(A.zx*A.zx + A.zy*A.zy + A.zz*A.zz);
+  double a0 = ff->aCut[0];
   Triple M1 = *(Triple *)ff->topGridDim;
+  for (int i = 1; i < L; i++) {
+    M1.x *= 2;
+    M1.y *= 2;
+    M1.z *= 2;
+  }
+  double eta0 = fmax(fmax(asx,asy),asz) * a0 ;
   Vector h
-    = {1./(asx*(double)M1.x), 1./(asy*(double)M1.y), 1./(asz*(double)M1.z)};
-  double hmin = fmin(fmin(h.x, h.y), h.z);
+    = {ax/(double)M1.x, ay/(double)M1.y, az/(double)M1.z};
+  double E3D = (4./3.)
+    * (asx*ax*pow(h.x/2.,nu-1)+asy*ay*pow(h.y/2.,nu-1)+asz*az*pow(h.z/2.,nu-1))
+    * (1./pow(a0,nu+1))
+    * (pow(1. + 3.*pow(2,(L-1.)/3.)*eta0,3) * Zm[index]
+       + 28. * pow(2,L+1.)*pow(eta0,3)*Zp[index]);
   // complete the calculation
   double Q2 = 0;
   for (int i = 0; i < N; i++) Q2 += charge[i]*charge[i];
-  double a0 = ff->aCut[0];
-  return Q2*C*pow(hmin, nu-2)/(pow(detA, 1./3.)*sqrt((double)N)*pow(a0, nu-1));
+  return Q2*a0*theta[index]*E3D/(pow(detA, 1./3.)*sqrt(3.0*N));
 }
 
 
@@ -392,6 +406,7 @@ void FF_rebuild(FF *ff, double edges[3][3]) {
   Matrix Ai = *(Matrix *)edges;
   double detA = invert(&Ai);
   *(Matrix *)ff->Ai = Ai;
+  ff->detA = detA ;
   Vector as = {sqrt(Ai.xx*Ai.xx + Ai.yx*Ai.yx + Ai.zx*Ai.zx),
                sqrt(Ai.xy*Ai.xy + Ai.yy*Ai.yy + Ai.zy*Ai.zy),
                sqrt(Ai.xz*Ai.xz + Ai.yz*Ai.yz + Ai.zz*Ai.zz)};
