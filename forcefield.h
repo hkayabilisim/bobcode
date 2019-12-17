@@ -21,6 +21,7 @@ typedef struct FF {
   double detA;
   double relCutoff;
   double errEst;
+  double errEstMoore;
   int orderAcc;
   int maxLevel;
   int topGridDim[3];

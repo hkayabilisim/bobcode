@@ -353,6 +353,7 @@ double FF_get_errEst(FF *ff, int N, double *charge){
   double Zm[4] = {81.,9675.,1986705.,651100275.};
   double Zp[4] = {24.,720.,40320.,3628800.};
   double theta[4] = {1,1,1,1};
+ 
   // calculate hmin
   Matrix Ai = *(Matrix *)ff->Ai;
   Matrix A = *(Matrix *)ff->A;
@@ -370,7 +371,7 @@ double FF_get_errEst(FF *ff, int N, double *charge){
     M1.y *= 2;
     M1.z *= 2;
   }
-  double eta0 = fmax(fmax(asx,asy),asz) * a0 ;
+  double eta0 = 0.0;//fmax(fmax(asx,asy),asz) * a0 ;
   Vector h
     = {ax/(double)M1.x, ay/(double)M1.y, az/(double)M1.z};
   double E3D = (4./3.)
@@ -380,8 +381,17 @@ double FF_get_errEst(FF *ff, int N, double *charge){
        + 28. * pow(2,L+1.)*pow(eta0,3)*Zp[index]);
   // complete the calculation
   double Q2 = 0;
-  for (int i = 0; i < N; i++) Q2 += charge[i]*charge[i];
-  return Q2*a0*theta[index]*E3D/(pow(detA, 1./3.)*sqrt(3.0*N));
+  for (int i = 0; i < N; i++) Q2 += charge[i]*charge[i];  
+  // Moore's constant
+  double M[4] = {9., 825., 130095., 34096545.};
+  double cbarp[4] = {1./6., 1./30., 1./140., 1./630.};
+  double k[4] = {0.39189561, 0.150829428, 0.049632967, 0.013520855};
+  double C = 4./3.*M[index]*cbarp[index]*k[index];
+  double hmin = fmin(fmin(h.x, h.y), h.z);
+  ff->errEstMoore = Q2*C*pow(hmin, nu-2)/(pow(detA, 1./3.)*sqrt((double)N)*pow(a0, nu-1));
+  
+  ff->errEst = Q2*a0*theta[index]*E3D/(pow(detA, 1./3.)*sqrt(3.0*N));
+  return ff->errEst;
 }
 
 

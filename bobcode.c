@@ -286,6 +286,7 @@ int main(int argc, char **argv){
     double rms = sqrt(rms_top/rms_bottom);
     printf("%-30s : %25.16e\n", "ferror",ferror);
     printf("%-30s : %25.16e\n", "ferrorest",ff->errEst);
+    printf("%-30s : %25.16e\n", "ferrorestMoore",ff->errEstMoore);
     printf("%-30s : %25.16e\n", "forceerror",max_acc_err/max_acc);
     printf("%-30s : %25.16e\n", "forcermserror",rms);
   }
