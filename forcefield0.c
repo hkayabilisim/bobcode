@@ -352,7 +352,7 @@ double FF_get_errEst(FF *ff, int N, double *charge){
   int index = (nu - 4)/2;
   double Zm[4] = {81.,9675.,1986705.,651100275.};
   double Zp[4] = {24.,720.,40320.,3628800.};
-  double theta[4] = {0.058381193532957,0.013802347761861,0.003954660840940,0.001692386744293};
+  double theta[4] = {1.0,1.0,1.0,1.0};
  
   // calculate hmin
   Matrix Ai = *(Matrix *)ff->Ai;
